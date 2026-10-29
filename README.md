@@ -12,6 +12,8 @@ rollouts) and adds InstantMimic-style GPU work on the training loop, a few algor
 contact reward. It runs on [mjlab](https://github.com/mujocolab/mjlab) / MuJoCo Warp and is
 installed with [uv](https://docs.astral.sh/uv/).
 
+**Project page:** <https://huy-quang-dao.github.io/instantTrack/>
+
 ![Same 15 minutes of training. Left: SuperMimic + EMA falls on fallAndGetUp1_subject1. Right: InstantTrack tracks it.](media/equal_time_15min.gif)
 
 *Both policies trained for 15 minutes (0.25 h) on one RTX 5090. Left: SuperMimic + EMA loses
