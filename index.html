@@ -6,9 +6,12 @@
 <title>InstantTrack</title>
 <meta name="description" content="InstantTrack trains one whole-body motion tracker for the Unitree G1 on all 40 LAFAN1 clips in 15 minutes on one GPU: 2.2× faster than SuperMimic with EMA and 6× faster than SuperMimic on the same machine, with cleaner foot contact.">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="InstantTrack">
 <meta property="og:title" content="InstantTrack">
 <meta property="og:description" content="Whole-body motion tracking for the Unitree G1 in 15 minutes on one GPU.">
-<meta property="og:image" content="media/equal_time_15min.jpg">
+<meta property="og:url" content="https://huy-quang-dao.github.io/instantTrack/">
+<meta property="og:image" content="https://huy-quang-dao.github.io/instantTrack/media/grid.jpg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,114 +25,189 @@
 <nav class="nav" aria-label="InstantTrack">
   <a class="nav-title" href="#top">InstantTrack</a>
   <div class="nav-links">
+    <a href="#highlights">Highlights</a>
     <a href="#speed">Speed</a>
-    <a href="#equal">Same 15 minutes</a>
-    <a href="#method">Method</a>
+    <a href="#loop">How it works</a>
     <a href="#accuracy">Accuracy</a>
     <a href="#ablation">Ablations</a>
-    <a href="#honest">Caveats</a>
+    <a href="#faq">Questions</a>
     <a href="#start">Get started</a>
-    <a href="#cite">Credits</a>
   </div>
+  <a class="pill out" href="https://github.com/Huy-Quang-Dao/instantTrack#readme">README</a>
   <a class="pill solid" href="https://github.com/Huy-Quang-Dao/instantTrack">Code</a>
 </nav>
 
 <main id="top">
 
+<!-- HERO -->
 <section class="hero">
   <div class="wrap">
     <p class="eyebrow rv">InstantTrack</p>
-    <h1 class="hx rv">All 40 motions.<br>15 minutes. One GPU.</h1>
-    <p class="lede rv">One whole-body tracking policy for the Unitree G1, trained on every LAFAN1 clip with a differentiable world model in <b>0.25 h on a single RTX 5090</b>. That is <b>2.2× faster than SuperMimic with EMA</b> and <b>6× faster than SuperMimic</b> on the same machine, simulator and evaluator, with cleaner foot contact.</p>
-    <div class="stage rv">
-      <div class="media">
-        <video src="media/hero_instanttrack_15min.mp4" poster="media/hero_instanttrack_15min.jpg" autoplay muted loop playsinline aria-label="A simulated Unitree G1 controlled by the InstantTrack policy after 15 minutes of training performs fall-and-get-up, jumps, dance and walking clips; a translucent blue ghost shows the reference motion."></video>
+    <h1 class="hx rv">Fifteen minutes. <br>One GPU.</h1>
+    <p class="hero-sub rv">One whole-body tracker for the Unitree G1, for every LAFAN1 motion.</p>
+  </div>
+  <div class="wrap-mid hero-stage">
+    <div class="ph rv">
+      <video id="heroV" src="media/hero.mp4" poster="media/hero.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-label="A simulated Unitree G1 controlled by InstantTrack after 15 minutes of training: a fall and get-up, a jump, a dance, a sprint and a fight sequence. A faint blue ghost shows the reference motion."></video>
+      <button class="vbtn" type="button" data-video="heroV" aria-label="Pause the video"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2.5h3.4v13H4zM10.6 2.5H14v13h-3.4z" fill="currentColor"/></svg></button>
+    </div>
+    <div class="buy">
+      <p>0.25 h on one RTX 5090. 0 of 40 clips failed.<span>2.2× faster than SuperMimic + EMA, 6× faster than SuperMimic, on the same machine.</span></p>
+      <a class="cta" href="https://github.com/Huy-Quang-Dao/instantTrack">Get the code</a>
+    </div>
+  </div>
+</section>
+
+<!-- HIGHLIGHTS -->
+<section class="sec band" id="highlights" aria-roledescription="carousel" aria-label="Highlights">
+  <div class="wrap headrow">
+    <h2 class="hl-head rv">Get the highlights.</h2>
+  </div>
+  <div class="track" id="hlTrack">
+    <article class="hcard" aria-roledescription="slide" aria-label="1 of 3">
+      <h3>All 40 LAFAN1 clips, one policy. <span>After 15 minutes of training.</span></h3>
+      <div class="ph"><video class="hlv" src="media/grid.mp4" poster="media/grid.jpg" muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A wall of 40 simulated Unitree G1 robots, each performing a different LAFAN1 clip, all controlled by the same InstantTrack policy trained for 15 minutes."></video></div>
+    </article>
+    <article class="hcard" aria-roledescription="slide" aria-label="2 of 3">
+      <h3>Same 15 minutes. <span>SuperMimic + EMA still falls; InstantTrack does not.</span></h3>
+      <div class="pair-key" aria-hidden="true"><span><i style="background:var(--ema)"></i>SuperMimic + EMA</span><span><i style="background:var(--it)"></i>InstantTrack</span></div>
+      <div class="ph"><video class="hlv" src="media/compare15.mp4" poster="media/compare15.jpg" muted loop playsinline preload="metadata" disablepictureinpicture aria-label="Side by side after 15 minutes of training on three fall-and-get-up clips: on the left SuperMimic plus EMA terminates on each clip, on the right InstantTrack keeps tracking."></video></div>
+    </article>
+    <article class="hcard" aria-roledescription="slide" aria-label="3 of 3">
+      <h3>Return 0.82 with no failed clip. <span>Hours on one RTX 5090.</span></h3>
+      <div class="tcard" role="img" aria-label="Hours to target: SuperMimic 1.50, SuperMimic plus EMA 0.55, InstantTrack 0.25.">
+        <div class="trow"><div class="tn"><b>SuperMimic</b><span>1 seed</span></div><div class="tbar"><i style="--w:80%;background:var(--sm)"></i><span style="--w:80%">1.50 h</span></div></div>
+        <div class="trow"><div class="tn"><b>SuperMimic + EMA</b><span>3 seeds: 0.50 / 0.54 / 0.60</span></div><div class="tbar"><i style="--w:29.3%;background:var(--ema)"></i><span style="--w:29.3%">0.55 h</span></div></div>
+        <div class="trow"><div class="tn"><b>InstantTrack</b><span>3 seeds: 0.25 / 0.25 / 0.25</span></div><div class="tbar"><i style="--w:13.3%;background:var(--it)"></i><span style="--w:13.3%">0.25 h</span></div></div>
       </div>
-      <div class="buy">
-        <p>A policy trained for 15 minutes, 0/40 clips failed.<span>Solid robot: InstantTrack in MuJoCo Warp. Blue ghost: the LAFAN1 reference.</span></p>
-        <div class="cta-row">
-          <a class="pill out" href="#honest">How we measured</a>
-          <a class="pill solid" href="https://github.com/Huy-Quang-Dao/instantTrack">GitHub</a>
+    </article>
+  </div>
+  <div class="pager-row">
+    <div class="pager" id="hlPager" role="group" aria-label="Choose a highlight"></div>
+    <button class="playbtn" id="hlPlay" type="button" aria-label="Pause highlights"><svg viewBox="0 0 18 18" aria-hidden="true"><path id="hlPlayIcon" d="M4 2.5h3.4v13H4zM10.6 2.5H14v13h-3.4z" fill="currentColor"/></svg></button>
+  </div>
+</section>
+
+<!-- SPEED -->
+<section class="sec" id="speed">
+  <div class="wrap-copy story-head">
+    <p class="eyebrow rv">Speed</p>
+    <h2 class="hx rv">A quarter <br>of an hour.</h2>
+    <p class="lede rv">Every method runs on the same RTX 5090, simulator, reward and evaluator. The target is <b>normalized return ≥ 0.82 with 0 of 40 clips failed, held for 3 checkpoints in a row</b>.</p>
+  </div>
+  <div class="wrap-mid">
+    <figure class="cfig rv">
+      <div class="sc-head">
+        <div>
+          <p class="sc-h">Evaluation return on all 40 clips</p>
+          <p class="sc-sub">Mean over seeds, band from min to max · training wall-clock</p>
+        </div>
+        <div class="seg" id="seg" role="group" aria-label="Series shown">
+          <button type="button" data-s="it" aria-pressed="true"><i class="sw" style="background:var(--it)"></i>InstantTrack</button>
+          <button type="button" data-s="ema" aria-pressed="true"><i class="sw" style="background:var(--ema)"></i>SuperMimic + EMA</button>
+          <button type="button" data-s="sm" aria-pressed="true"><i class="sw" style="background:var(--sm)"></i>SuperMimic</button>
         </div>
       </div>
+      <div class="chart" id="chart" tabindex="0" role="slider" aria-label="Training time on the chart" aria-valuemin="0" aria-valuemax="0.75" aria-describedby="chDesc"></div>
+      <p class="sr" id="chDesc">Line chart of evaluation normalized return over training wall-clock from 0 to 0.75 hours. InstantTrack crosses the 0.82 target at about 0.2 hours, SuperMimic plus EMA at about 0.5 hours, and SuperMimic stays below it within 0.75 hours. Use the left and right arrow keys to step through checkpoints.</p>
+      <figcaption class="sc-cap">InstantTrack and SuperMimic + EMA: 3 seeds each. SuperMimic: 1 seed. Checkpoints every 3 minutes, evaluated offline. Move across the chart to read each checkpoint.</figcaption>
+    </figure>
+  </div>
+  <div class="wrap-mid bsum rv" role="table" aria-label="Time to target">
+    <div class="bs-row top" role="row"><span role="columnheader"><span class="sr">Ratio</span></span><span class="bs-who" role="columnheader"><i style="background:var(--it)"></i>InstantTrack</span><span class="bs-who" role="columnheader"><i style="background:var(--ema)"></i>Baseline</span></div>
+    <div class="bs-row" role="row">
+      <p class="bs-r" role="rowheader"><b>2.2×</b>less time than SuperMimic + EMA</p>
+      <p class="bs-v it" role="cell">0.25 h</p>
+      <p class="bs-v" role="cell">0.55 h</p>
+    </div>
+    <div class="bs-row" role="row">
+      <p class="bs-r" role="rowheader"><b>6×</b>less time than SuperMimic</p>
+      <p class="bs-v it" role="cell">0.25 h</p>
+      <p class="bs-v" role="cell">1.50 h</p>
+    </div>
+    <div class="bs-row" role="row">
+      <p class="bs-r" role="rowheader"><b>2×</b>more training iterations per second</p>
+      <p class="bs-v it" role="cell">6.3 it/s</p>
+      <p class="bs-v" role="cell">3.1 it/s</p>
     </div>
   </div>
 </section>
 
-<section class="sec band" id="speed">
+<!-- HOW IT WORKS -->
+<section class="sec band" id="loop">
   <div class="wrap">
-    <div class="head rv">
-      <p class="eyebrow">Time to target</p>
-      <h2 class="h2">Same target, a quarter of an hour.</h2>
-      <p class="lede">Hours of training until the policy reaches normalized return ≥ 0.82 with <b>0 of 40 clips failed</b>, held for 3 consecutive checkpoints. Everything runs on one RTX 5090 and shares the same simulator, MDP and evaluator.</p>
+    <div class="loop rv">
+      <div class="lp-head">
+        <p class="eyebrow">How it works</p>
+        <h2 class="hl-head">SuperMimic's loop, <br>rebuilt for the GPU.</h2>
+        <p class="lede">InstantTrack keeps SuperMimic's algorithm. One differentiable world model learns the dynamics, and the policy is trained by backpropagating the imagined return through it. The blue tags mark what InstantTrack changes in each step.</p>
+      </div>
+      <svg class="h" viewBox="0 0 1000 360" role="img" aria-label="Loop of three steps: Collect in the simulator into a replay buffer, Fit one world model, Imagine short rollouts and backpropagate through the world model. InstantTrack tags: failure-focused resets on Collect; 1024-cubed world model, fused rotations and compiled steps on Fit; contact reward, EMA policy and no host syncs on Imagine.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#86868b"/></marker>
+          <marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0071e3"/></marker>
+        </defs>
+        <text class="s" x="500" y="22" text-anchor="middle">the updated policy acts again</text>
+        <path class="ar" d="M855 74V34H145V72" marker-end="url(#ah)"/>
+        <g class="nd"><rect x="20" y="80" width="250" height="150" rx="22"/><text class="t" x="44" y="128">Collect</text><text class="s" x="44" y="156">4096 robots in MuJoCo Warp</text><text class="s" x="44" y="206">→ replay buffer</text></g>
+        <g class="nd"><rect x="375" y="80" width="250" height="150" rx="22"/><text class="t" x="399" y="128">Fit</text><text class="s" x="399" y="156">one world model, all motions</text><text class="s" x="399" y="206">learned, differentiable</text></g>
+        <g class="nd"><rect x="730" y="80" width="250" height="150" rx="22"/><text class="t" x="754" y="128">Imagine</text><text class="s" x="754" y="156">32 steps in the model</text><text class="s" x="754" y="206">policy + critic</text></g>
+        <path class="ar" d="M276 155H368" marker-end="url(#ah)"/>
+        <path class="ar" d="M631 155H723" marker-end="url(#ah)"/>
+        <path class="bp" d="M940 186H800" marker-end="url(#ahb)"/>
+        <g class="chip"><rect x="20" y="248" width="196" height="30" rx="15"/><text x="34" y="268">failure-focused resets</text></g>
+        <g class="chip"><rect x="375" y="248" width="150" height="30" rx="15"/><text x="389" y="268">1024³ world model</text></g>
+        <g class="chip"><rect x="375" y="286" width="232" height="30" rx="15"/><text x="389" y="306">fused rotations · compiled</text></g>
+        <g class="chip"><rect x="730" y="248" width="180" height="30" rx="15"/><text x="744" y="268">contact reward</text></g>
+        <g class="chip"><rect x="730" y="286" width="232" height="30" rx="15"/><text x="744" y="306">EMA policy · no host syncs</text></g>
+        <text class="bl" x="730" y="346">BPTT · analytic policy gradient through the world model</text>
+      </svg>
+      <svg class="v" viewBox="0 0 340 760" role="img" aria-label="The same loop drawn vertically: Collect, Fit, Imagine, with InstantTrack's changes tagged on each step.">
+        <defs>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#86868b"/></marker>
+        </defs>
+        <g class="nd"><rect x="20" y="10" width="270" height="120" rx="22"/><text class="t" x="42" y="54">Collect</text><text class="s" x="42" y="82">4096 robots in MuJoCo Warp</text><text class="s" x="42" y="108">→ replay buffer</text></g>
+        <g class="chip"><rect x="20" y="140" width="196" height="30" rx="15"/><text x="34" y="160">failure-focused resets</text></g>
+        <path class="ar" d="M155 178V222" marker-end="url(#ah2)"/>
+        <g class="nd"><rect x="20" y="230" width="270" height="120" rx="22"/><text class="t" x="42" y="274">Fit</text><text class="s" x="42" y="302">one world model, all motions</text><text class="s" x="42" y="328">learned, differentiable</text></g>
+        <g class="chip"><rect x="20" y="360" width="150" height="30" rx="15"/><text x="34" y="380">1024³ world model</text></g>
+        <g class="chip"><rect x="20" y="398" width="232" height="30" rx="15"/><text x="34" y="418">fused rotations · compiled</text></g>
+        <path class="ar" d="M155 436V480" marker-end="url(#ah2)"/>
+        <g class="nd"><rect x="20" y="488" width="270" height="120" rx="22"/><text class="t" x="42" y="532">Imagine</text><text class="s" x="42" y="560">32 steps in the model</text><text class="s" x="42" y="586">BPTT through the world model</text></g>
+        <g class="chip"><rect x="20" y="618" width="140" height="30" rx="15"/><text x="34" y="638">contact reward</text></g>
+        <g class="chip"><rect x="20" y="656" width="232" height="30" rx="15"/><text x="34" y="676">EMA policy · no host syncs</text></g>
+        <path class="ar" d="M296 548H322V70H296" marker-end="url(#ah2)"/>
+      </svg>
     </div>
-    <div class="bars rv" role="img" aria-label="Hours to target: SuperMimic 1.50, SuperMimic plus EMA 0.55, InstantTrack 0.25.">
-      <div class="bar-row"><div class="bar-name">SuperMimic</div><div class="bar-track"><div class="bar-fill" style="--w:83.3%;background:var(--sm0)"></div><span class="bar-val" style="--w:83.3%">1.50 h</span></div><div class="bar-note">1 seed · our reimplementation with the paper's hyperparameters</div></div>
-      <div class="bar-row"><div class="bar-name">SuperMimic + EMA</div><div class="bar-track"><div class="bar-fill" style="--w:30.6%;background:var(--sm)"></div><span class="bar-val" style="--w:30.6%">0.55 h</span></div><div class="bar-note">3 seeds: 0.50 / 0.54 / 0.60 h · the fair baseline</div></div>
-      <div class="bar-row"><div class="bar-name">InstantTrack</div><div class="bar-track"><div class="bar-fill" style="--w:13.9%;background:var(--it)"></div><span class="bar-val" style="--w:13.9%">0.25 h</span></div><div class="bar-note">3 seeds: 0.25 / 0.25 / 0.25 h · a 4th, 1.5 h run held from 0.20 h</div></div>
-    </div>
-    <div class="stats rv">
-      <div class="stat"><div class="num">0.25<small> h</small></div><div class="lab">to return ≥ 0.82 with 0/40 failed clips, every seed</div></div>
-      <div class="stat"><div class="num">2.2<small>×</small></div><div class="lab">faster than SuperMimic + EMA (6× faster than SuperMimic)</div></div>
-      <div class="stat"><div class="num">6.3<small> it/s</small></div><div class="lab">training iterations per second, against 3.1 for SuperMimic</div></div>
-      <div class="stat"><div class="num">0.81</div><div class="lab">foot-contact agreement with the reference, against 0.72</div></div>
-    </div>
-  </div>
-</section>
 
-<section class="sec" id="equal">
-  <div class="wrap">
-    <div class="head rv">
-      <p class="eyebrow">Same 15 minutes of training</p>
-      <h2 class="h2">At 0.25 h, one is done. The other still falls.</h2>
-      <p class="lede">After 0.25 h, SuperMimic + EMA still fails 9 of 40 clips, most of them fall-and-get-up motions. InstantTrack fails none. Left: SuperMimic + EMA. Right: InstantTrack. Same seed, same clips, same moment.</p>
-    </div>
-    <div class="media rv">
-      <video src="media/equal_time_15min.mp4" poster="media/equal_time_15min.jpg" controls muted loop playsinline preload="metadata" aria-label="Side by side after 15 minutes of training: SuperMimic plus EMA terminates on three fall-and-get-up clips while InstantTrack keeps tracking them."></video>
-    </div>
-    <div class="tbl rv" style="margin-top:28px">
-      <table>
-        <thead><tr><th>mean over seeds: return / failed clips</th><th>0.15 h</th><th>0.25 h</th><th>0.50 h</th><th>0.75 h</th></tr></thead>
-        <tbody>
-          <tr><td>SuperMimic (1 seed)</td><td>0.545 / 12</td><td>0.646 / 10</td><td>0.775 / 2</td><td>0.757 / 5</td></tr>
-          <tr><td>SuperMimic + EMA</td><td>0.540 / 12.3</td><td>0.630 / 12.0</td><td>0.819 / 0.3</td><td>0.847 / 0.0</td></tr>
-          <tr class="us"><td>InstantTrack</td><td class="best">0.791 / 1.0</td><td class="best">0.831 / 0.0</td><td class="best">0.857 / 0.0</td><td class="best">0.867 / 0.0</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <img class="rv" src="media/fig_curves.png" alt="Learning curves over 0.75 h: InstantTrack's evaluation return crosses 0.82 near 0.2 h and its failed clips reach 0 by 0.17 h; SuperMimic plus EMA crosses near 0.5 h." style="margin-top:28px;border-radius:16px;background:#fff">
-  </div>
-</section>
-
-<section class="sec band" id="method">
-  <div class="wrap">
-    <div class="head rv">
-      <p class="eyebrow">How it works</p>
-      <h2 class="h2">SuperMimic's world model, a training loop built for the GPU.</h2>
-      <p class="lede">The base is SuperMimic: a differentiable world model predicts the robot's next state, and the policy is trained by backpropagating the imagined return through 32 world-model steps, with a critic. InstantTrack keeps that algorithm and adds changes in three groups: <b>systems</b> in the spirit of InstantMimic, <b>training</b>, and <b>contact</b>. Each is one flag.</p>
-    </div>
     <div class="cards">
-      <div class="card rv"><div class="tag">systems · --fused_rot</div><h3>Fused 3×3 rotations</h3><p>The rotation products in kinematics, reward, observation and world model are written element-wise, so <code>torch.compile</code> fuses them. They no longer go to cuBLAS as about 57 ms of batched GEMVs per iteration.</p><div class="gain">+14% it/s</div></div>
-      <div class="card rv"><div class="tag">systems · --compile_more</div><h3>Compile the whole step</h3><p>Reward, termination, observation, goal and normalizer inputs are compiled as well, taking an iteration from 25.3k to 15.2k kernel launches.</p><div class="gain">+20% it/s · 315 → 209 ms / iteration</div></div>
-      <div class="card rv"><div class="tag">systems · --no_sync --fused_adam</div><h3>No host syncs</h3><p>Fixed-size sampling and on-GPU guards remove every CPU↔GPU synchronization inside an iteration. Adam, GAE and the critic loss are fused or compiled.</p><div class="gain">GPU never waits for Python</div></div>
-      <div class="card rv"><div class="tag">training · --pi_ema 0.995</div><h3>EMA policy</h3><p>A Polyak average of the policy weights is what we checkpoint and deploy. On its own this cuts SuperMimic from 1.50 h to 0.55 h, so we count it as part of the baseline.</p><div class="gain">2.7× on SuperMimic</div></div>
-      <div class="card rv"><div class="tag">training · --wm_hidden 1024³ --lr 4e-4 --wm_batches 5</div><h3>A right-sized world model</h3><p>A 1024³ world model learns as fast per iteration as the paper's 2048³ for 40 clips, and it runs much faster. A higher learning rate with fewer world-model batches converges in fewer iterations.</p><div class="gain">+28% it/s</div></div>
-      <div class="card rv"><div class="tag">training · --fail_reset 0.3</div><h3>Failure-focused resets</h3><p>A per-second termination rate tracks where episodes fail. 30% of resets start one second before those points, so a hard clip such as fall-and-get-up is not forgotten between checkpoints.</p><div class="gain">removes most single-clip flicker</div></div>
-      <div class="card rv"><div class="tag">contact · --contact_reward 0.25</div><h3>A contact reward, in imagination only</h3><p>A differentiable foot-contact indicator is matched to the reference contact state, and foot sliding is penalized while the reference foot is down. Evaluation keeps SuperMimic's reward unchanged.</p><div class="gain">contact agreement 0.74 → 0.81</div></div>
+      <div class="card rv"><p class="k">--fused_rot</p><h3>Fused 3×3 rotations</h3><p>The rotation products in kinematics, reward, observation and world model are written element-wise, so <code>torch.compile</code> fuses them. They no longer go to cuBLAS as about 57 ms of batched GEMVs per iteration.</p><p class="g">+14%<small>iterations per second</small></p></div>
+      <div class="card rv"><p class="k">--compile_more</p><h3>Compile the whole step</h3><p>Reward, termination, observation, goal and normalizer inputs are compiled too. Each iteration drops from 25.3k to 15.2k kernel launches.</p><p class="g">315 → 209 ms<small>per iteration, under the profiler</small></p></div>
+      <div class="card rv"><p class="k">--wm_hidden 1024,1024,1024</p><h3>A right-sized world model</h3><p>For 40 clips, a 1024³ world model learns as much per iteration as the paper's 2048³, and each iteration is much cheaper.</p><p class="g">+28%<small>iterations per second</small></p></div>
+      <div class="card rv"><p class="k">--pi_ema 0.995</p><h3>EMA policy</h3><p>The checkpoint is a Polyak average of the policy weights. That alone takes SuperMimic from 1.50 h to 0.55 h, so we count it as part of the baseline.</p><p class="g">2.7×<small>on SuperMimic alone</small></p></div>
+      <div class="card rv"><p class="k">--fail_reset 0.3</p><h3>Failure-focused resets</h3><p>A per-second termination rate tracks where episodes fail, and 30% of resets start one second before those points. Hard clips such as fall-and-get-up are no longer forgotten between checkpoints.</p><p class="g">0.27 → 0.22 h<small>mean time to target</small></p></div>
+      <div class="card rv"><p class="k">--contact_reward 0.25</p><h3>Contact reward, imagination only</h3><p>A differentiable foot-contact indicator is matched to the reference, and foot sliding is penalized while the reference foot is down. Evaluation uses SuperMimic's reward unchanged.</p><p class="g">0.74 → 0.81<small>foot-contact agreement</small></p></div>
     </div>
   </div>
 </section>
 
+<!-- ACCURACY -->
 <section class="sec" id="accuracy">
+  <div class="wrap-copy story-head">
+    <p class="eyebrow rv">Accuracy</p>
+    <h2 class="hx rv">Faster, <br>and closer.</h2>
+    <p class="lede rv">After the same 0.75 h of training, InstantTrack tracks the reference more closely and puts its feet down more like the reference does. Mean over 3 seeds; every clip runs once from its first frame, with no randomization.</p>
+  </div>
   <div class="wrap">
-    <div class="head rv">
-      <p class="eyebrow">Tracking accuracy and contact</p>
-      <h2 class="h2">Faster, and it tracks better.</h2>
-      <p class="lede">All 40 clips are run once from their first frame, with no randomization and a deterministic policy. The table shows the mean ± std over 3 seeds after 0.75 h of training. Body errors use the 14 tracked bodies. Contact agreement is the fraction of foot-frames whose contact state matches the reference.</p>
+    <div class="tiles rv">
+      <div class="tile"><div class="n">−23<small>%</small></div><div class="l"><b>body position error</b><br>3.53 cm vs 4.60 cm</div></div>
+      <div class="tile"><div class="n">−32<small>%</small></div><div class="l"><b>body orientation error</b><br>7.5° vs 11.1°</div></div>
+      <div class="tile"><div class="n">0.81</div><div class="l"><b>foot-contact agreement</b><br>vs 0.72 for SuperMimic + EMA</div></div>
+      <div class="tile"><div class="n">−17<small>%</small></div><div class="l"><b>foot slip in contact</b><br>6.62 vs 8.00 cm/s</div></div>
     </div>
     <div class="tbl rv">
       <table>
-        <thead><tr><th>after 0.75 h</th><th>return ↑</th><th>body pos (cm) ↓</th><th>body ori (°) ↓</th><th>joints (°) ↓</th><th>contact agreement ↑</th><th>foot slip (cm/s) ↓</th><th>penetration (mm) ↓</th><th>root drift (cm) ↓</th></tr></thead>
+        <thead><tr><th>after 0.75 h · mean ± std</th><th>return ↑</th><th>body pos (cm) ↓</th><th>body ori (°) ↓</th><th>joints (°) ↓</th><th>contact agreement ↑</th><th>foot slip (cm/s) ↓</th><th>penetration (mm) ↓</th><th>root drift (cm) ↓</th></tr></thead>
         <tbody>
           <tr><td>SuperMimic (1 seed)</td><td>0.775</td><td>5.29</td><td>12.5</td><td>6.15</td><td>0.727</td><td>8.44</td><td>0.066</td><td>116</td></tr>
           <tr><td>SuperMimic + EMA</td><td>0.852 ± 0.002</td><td>4.60 ± 0.03</td><td>11.1 ± 0.2</td><td>5.61 ± 0.05</td><td>0.719 ± 0.001</td><td>8.00 ± 0.06</td><td>0.063 ± 0.003</td><td class="best">54 ± 1</td></tr>
@@ -138,80 +216,45 @@
         </tbody>
       </table>
     </div>
-    <p class="caption rv">At 1.5 h (seed 0): SuperMimic + EMA reaches return 0.880, body pos 3.83 cm, ori 9.2°, contact agreement 0.733, slip 7.78 cm/s, root drift 49 cm. InstantTrack reaches 0.877, 3.27 cm, 6.4°, 0.829, 6.48 cm/s and 62 cm. Without the contact reward InstantTrack reaches 0.890 and 3.03 cm. The reference motion itself slips 10.2 cm/s.</p>
-    <div class="media rv" style="margin-top:36px">
-      <video src="media/compare_1.5h.mp4" poster="media/compare_1.5h.jpg" controls muted loop playsinline preload="metadata" aria-label="Side by side after 1.5 hours of training: SuperMimic plus EMA on the left and InstantTrack on the right, on fall-and-get-up, jumps, walk and sprint clips."></video>
-    </div>
-    <p class="caption rv">After 1.5 h both methods track every clip. Left: SuperMimic + EMA. Right: InstantTrack. The difference is centimetres and degrees; look at the feet during jumps and sprints.</p>
+    <p class="note rv">At 1.5 h (seed 0), SuperMimic + EMA reaches return 0.880, 3.83 cm, 9.2°, contact agreement 0.733 and 49 cm of root drift. InstantTrack reaches 0.877, 3.27 cm, 6.4°, 0.829 and 62 cm; without the contact reward it reaches 0.890, 3.03 cm and 42 cm. The reference motion itself slips 10.2 cm/s.</p>
   </div>
 </section>
 
+<!-- ABLATION -->
 <section class="sec band" id="ablation">
-  <div class="wrap">
-    <div class="head rv">
-      <p class="eyebrow">Ablation ladder</p>
-      <h2 class="h2">Where the time goes.</h2>
-      <p class="lede">Each row adds one change to the row above. Times are held ×3 at 0.82 with 0 failed clips.</p>
-    </div>
-    <div class="tbl rv">
-      <table>
-        <thead><tr><th>configuration</th><th>seeds</th><th>held at (h)</th><th>mean (h)</th><th>it/s</th></tr></thead>
-        <tbody>
-          <tr><td>SuperMimic (paper hyperparameters)</td><td>1</td><td>1.50</td><td>1.50</td><td>3.05</td></tr>
-          <tr><td>+ EMA policy</td><td>3</td><td>0.50 / 0.54 / 0.60</td><td>0.55</td><td>3.08</td></tr>
-          <tr><td>+ lr 4e-4, 5 WM batches, no host syncs, fused Adam</td><td>3</td><td>0.29 / 0.30 / 0.35</td><td>0.31</td><td>3.51</td></tr>
-          <tr><td>+ fused 3×3 rotations</td><td>1</td><td>0.30</td><td>0.30</td><td>4.14</td></tr>
-          <tr><td>+ compiled reward / obs / goal</td><td>3</td><td>0.25 / 0.25 / 0.49</td><td>0.33</td><td>4.88</td></tr>
-          <tr><td>+ world model 1024³</td><td>3</td><td>0.30 / 0.20 / 0.30</td><td>0.27</td><td>6.35</td></tr>
-          <tr><td>+ failure-focused resets</td><td>3</td><td>0.20 / 0.20 / 0.25</td><td>0.22</td><td>6.29</td></tr>
-          <tr class="us"><td>+ contact reward = InstantTrack</td><td>3</td><td>0.25 / 0.25 / 0.25</td><td>0.25</td><td>6.32</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="caption rv">The contact reward costs about 0.03 h. In exchange, contact agreement rises from 0.74 to 0.81 and foot slip falls 15%. The preset <code>instanttrack_track</code> leaves it out.</p>
-    <details class="rv" style="margin-top:36px">
-      <summary>What we tried that did not help</summary>
-      <div>
-        <ul class="list">
-          <li>Smaller policy and world model (1024-512-256): 1.20 h.</li>
-          <li>DiffMimic-style demonstration replay, on top of EMA: 0.59 h.</li>
-          <li>Policy batch 2048: 0.55 h. EMA 0.999: 0.55 h. lr 6e-4: 0.40 h. 3 WM batches: 0.45 h.</li>
-          <li>Horizon 24: 0.30 h. Horizon 16: 7.0 it/s but a lower return ceiling, 0.30 h.</li>
-          <li>PhysMamba-style foot-contact world-model loss: 0.34–0.35 h. Anchored imagination (on-policy corrections): parity at 0.31 h.</li>
-          <li>2 critic epochs: 0.40 h. UTD 0.5: 0.40 h. WM window 4: parity.</li>
-          <li>CUDA graphs via <code>torch.compile(mode="reduce-overhead")</code>: +3% it/s, same kernel count, parity.</li>
-          <li>Contact-mode world model, with 4 heads mixed by predicted foot contact: parity on time and on contact metrics, 3 seeds.</li>
-          <li>Contact reward 0.5: contact agreement 0.87–0.88, but held at 0.25–0.35 h with more pose error and root drift.</li>
-        </ul>
-        <p class="small">Every run's flags, training log and evaluation log are published in <a href="https://github.com/Huy-Quang-Dao/instantTrack/tree/main/results/runs">results/runs</a>.</p>
-      </div>
-    </details>
+  <div class="wrap-copy story-head">
+    <p class="eyebrow rv">Ablations</p>
+    <h2 class="hx rv">Where the <br>time goes.</h2>
+    <p class="lede rv">Each row adds one change to the row above. The bar is the mean time to target, and the dots are individual seeds.</p>
+  </div>
+  <div class="wrap-mid">
+    <div class="steps rv" id="steps"></div>
+    <p class="note rv">Variants that did not help, all reported in the README: a smaller policy, demonstration replay, policy batch 2048, EMA 0.999, lr 6e-4, horizons 16 and 24, a foot-contact world-model loss, anchored imagination, more critic epochs, UTD 0.5, CUDA graphs, world-model window 4, a contact-mode world model, and contact reward 0.5.</p>
   </div>
 </section>
 
-<section class="sec" id="honest">
-  <div class="copyw">
-    <div class="head rv">
-      <p class="eyebrow">How to read these numbers</p>
-      <h2 class="h2">What we claim, and what we don't.</h2>
+<!-- FAQ -->
+<section class="sec" id="faq">
+  <div class="wrap-copy">
+    <h2 class="hl-head rv" style="margin-bottom:28px">Questions.</h2>
+    <div class="faq rv">
+      <details open><summary>Is this the official SuperMimic code?</summary><div class="a"><p><b>No.</b> No official SuperMimic code is released. Our SuperMimic is the mjlab port of <a href="https://github.com/zita-ch/supermimic_vibed">supermimic_vibed</a>, an independent reimplementation of the paper. The paper reports ~1.2 h to return 0.82 on an H100. We measure 1.50 h on an RTX 5090 under a stricter criterion. The speed-ups compare InstantTrack with our SuperMimic on the same machine, not with the paper's numbers.</p></div></details>
+      <details><summary>Why compare with SuperMimic + EMA?</summary><div class="a"><p>A Polyak-averaged policy alone takes SuperMimic from 1.50 h to 0.55 h. Any SuperMimic implementation can adopt it, so we treat SuperMimic + EMA as the fair baseline and quote <b>2.2×</b> against it.</p></div></details>
+      <details><summary>How is time measured?</summary><div class="a"><p>Training wall-clock on an otherwise idle GPU. It includes torch.compile warm-up and checkpoint writing, and it excludes the offline evaluation of checkpoints. Checkpoints come every 3 minutes, so times are quantized to 0.05 h. GPU runs are not bit-reproducible: re-running one seed of one configuration moved it from 0.30 h to 0.34 h.</p></div></details>
+      <details><summary>Where is InstantTrack worse?</summary><div class="a"><p>With the contact reward, normalized return at 1.5 h is 0.877, against 0.880 for SuperMimic + EMA, and global root drift is larger. Feet that stick to the ground do not slide along where the reference itself slides, which is about 10.2 cm/s of slip from retargeting. Without the contact reward, InstantTrack is better on every metric we measure.</p></div></details>
+      <details><summary>What is not covered?</summary><div class="a"><p>Only the Unitree G1 in simulation, on LAFAN1's 40 clips. There are no evaluation-time pushes or randomization, no hardware experiment and no larger motion library. Plain SuperMimic has one seed; the other methods have three.</p></div></details>
     </div>
-    <ul class="list rv">
-      <li><b>The baseline is our reimplementation.</b> No official SuperMimic code is released. Our SuperMimic is the mjlab port of <a href="https://github.com/zita-ch/supermimic_vibed">supermimic_vibed</a>, an independent reimplementation. The SuperMimic paper reports ~1.2 h to 0.82 on an H100. We measure 1.50 h on an RTX 5090 under a stricter criterion. The speed-up is InstantTrack against our SuperMimic on the same machine, not against the paper's numbers.</li>
-      <li><b>EMA does a lot of the work.</b> EMA alone is 2.7× on SuperMimic, which is why we quote 2.2× against SuperMimic + EMA.</li>
-      <li><b>Seeds and resolution.</b> We ran 3 seeds per method, but only 1 for plain SuperMimic. Checkpoints come every 3 minutes, so times are quantized to 0.05 h, and GPU runs are not bit-reproducible.</li>
-      <li><b>Wall-clock.</b> Time is training on an otherwise idle GPU. It includes compile warm-up and checkpoint writing, and it excludes offline evaluation.</li>
-      <li><b>Where InstantTrack is worse.</b> With the contact reward, return at 1.5 h is 0.877 against 0.880, and global root drift is larger: feet that stick do not slide along with the reference's own 10.2 cm/s of slip.</li>
-      <li><b>Scope.</b> These results cover the Unitree G1 in simulation and LAFAN1's 40 clips. There are no evaluation-time pushes or randomization, and no hardware experiment.</li>
-    </ul>
   </div>
 </section>
 
+<!-- START -->
 <section class="sec band" id="start">
   <div class="wrap split">
     <div class="rv">
       <p class="eyebrow">Get started</p>
-      <h2 class="h2">Train your own in 15 minutes.</h2>
-      <p class="lede">You need Linux, an NVIDIA GPU with CUDA 12.8 drivers and <a href="https://docs.astral.sh/uv/">uv</a>. The script downloads the G1 retargets of LAFAN1 for you. The README has every flag, preset and reproduction script.</p>
+      <h2 class="hl-head">Train your own <br>in 15 minutes.</h2>
+      <p class="lede">You need Linux, an NVIDIA GPU with CUDA 12.8 drivers and <a href="https://docs.astral.sh/uv/">uv</a>. The download script fetches the G1 retargets of LAFAN1.</p>
+      <p class="more"><a href="https://github.com/Huy-Quang-Dao/instantTrack#setup">Setup, presets and reproduction scripts in the README ›</a></p>
     </div>
     <div class="codebox rv">
       <button class="copy" type="button" data-copy="setup">Copy</button>
@@ -221,39 +264,37 @@ uv sync
 tools/download_data.sh
 uv run python tools/test_env.py
 
-# InstantTrack, 0.75 h, then evaluate every checkpoint
+<span class="c"># InstantTrack, 0.75 h, then evaluate every checkpoint</span>
 scripts/train.sh instanttrack it_s0 --seed 0 --max_hours 0.75
 
-# the fair baseline
+<span class="c"># the fair baseline</span>
 scripts/train.sh supermimic_ema sm_ema_s0 --seed 0 --max_hours 0.75</pre>
     </div>
   </div>
 </section>
 
+<!-- CREDITS -->
 <section class="sec" id="cite">
-  <div class="copyw">
-    <div class="head rv">
-      <p class="eyebrow">Credits</p>
-      <h2 class="h2">Built on the work of others.</h2>
-    </div>
-    <ul class="list rv">
-      <li><b>Method.</b> Q. Liao, Y. Shao, J. Long, K. Zakka, R. Horowitz, P. Abbeel, K. Sreenath. <a href="https://arxiv.org/abs/2610.28480">SuperMimic: Scaling Humanoid Whole-Body Control with One Differentiable World Model</a>, 2026 (<a href="https://supermimic.github.io">project page</a>). InstantTrack is independent work, not affiliated with or endorsed by the authors.</li>
-      <li><b>Code base.</b> <a href="https://github.com/zita-ch/supermimic_vibed">supermimic_vibed</a> by Chong Zhang (ETH Zurich), MIT License.</li>
-      <li><b>Training-loop engineering.</b> I. Choi, G. Leem, J. Won. <a href="https://arxiv.org/abs/2609.09821">InstantMimic: A High Performance System for Learning Physics-based Skills in Seconds</a>, 2026.</li>
-      <li><b>Simulation.</b> <a href="https://github.com/mujocolab/mjlab">mjlab</a> (Zakka et al., arXiv:2601.22074), <a href="https://mujoco.org">MuJoCo</a> (Todorov et al., 2012), <a href="https://github.com/google-deepmind/mujoco_warp">MuJoCo Warp</a>, <a href="https://github.com/NVIDIA/warp">NVIDIA Warp</a>, <a href="https://pytorch.org">PyTorch</a>.</li>
-      <li><b>Data.</b> LAFAN1 by Ubisoft La Forge: F. G. Harvey, M. Yurick, D. Nowrouzezahrai, C. Pal, <i>Robust Motion In-betweening</i>, SIGGRAPH 2020, CC BY-NC-ND 4.0. G1 retargets and robot description by Unitree (BSD-3-Clause).</li>
-      <li><b>Related work.</b> SuperTrack (Fussell et al., 2021), BeyondMimic (Liao et al., 2026), SHAC (Xu et al., 2022), DiffMimic (Ren et al., 2023), Suh et al. (2022), PhysMamba (Zhang &amp; Todorovic, 2026).</li>
-    </ul>
-    <div class="codebox rv" style="margin-top:28px">
+  <div class="wrap-copy">
+    <h2 class="hl-head rv" style="margin-bottom:28px">Built on the work of others.</h2>
+    <dl class="credits rv">
+      <div><dt>Method</dt><dd>Q. Liao, Y. Shao, J. Long, K. Zakka, R. Horowitz, P. Abbeel, K. Sreenath. <a href="https://arxiv.org/abs/2610.28480">SuperMimic: Scaling Humanoid Whole-Body Control with One Differentiable World Model</a>, 2026 (<a href="https://supermimic.github.io">project page</a>). InstantTrack is independent work and is not affiliated with or endorsed by the authors.</dd></div>
+      <div><dt>Code base</dt><dd><a href="https://github.com/zita-ch/supermimic_vibed">supermimic_vibed</a> by Chong Zhang (ETH Zurich), MIT License.</dd></div>
+      <div><dt>Training loop</dt><dd>I. Choi, G. Leem, J. Won. <a href="https://arxiv.org/abs/2609.09821">InstantMimic: A High Performance System for Learning Physics-based Skills in Seconds</a>, 2026.</dd></div>
+      <div><dt>Simulation</dt><dd><a href="https://github.com/mujocolab/mjlab">mjlab</a> (Zakka et al., 2026), <a href="https://mujoco.org">MuJoCo</a> (Todorov, Erez, Tassa, 2012), <a href="https://github.com/google-deepmind/mujoco_warp">MuJoCo Warp</a>, <a href="https://github.com/NVIDIA/warp">NVIDIA Warp</a>, <a href="https://pytorch.org">PyTorch</a>.</dd></div>
+      <div><dt>Data</dt><dd>LAFAN1 by Ubisoft La Forge: F. G. Harvey, M. Yurick, D. Nowrouzezahrai, C. Pal, <i>Robust Motion In-betweening</i>, SIGGRAPH 2020, CC BY-NC-ND 4.0. G1 retargets and description by Unitree (BSD-3-Clause).</dd></div>
+      <div><dt>Related work</dt><dd>SuperTrack (Fussell, Bergamin, Holden, 2021), BeyondMimic (Liao et al., 2026), SHAC (Xu et al., 2022), DiffMimic (Ren et al., 2023), Suh et al. (2022), PhysMamba (Zhang &amp; Todorovic, 2026).</dd></div>
+    </dl>
+    <div class="codebox rv" style="margin-top:36px">
       <button class="copy" type="button" data-copy="bib">Copy</button>
-<pre id="bib">@misc{instanttrack2026,
+<pre id="bib" style="background:var(--band)">@misc{instanttrack2026,
   title  = {InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in 15 Minutes on One GPU},
   author = {Huy-Quang-Dao},
   year   = {2026},
   url    = {https://github.com/Huy-Quang-Dao/instantTrack}
 }</pre>
     </div>
-    <p class="small rv" style="margin-top:14px">Please also cite SuperMimic, InstantMimic, mjlab and LAFAN1. BibTeX entries for all of them are in the <a href="https://github.com/Huy-Quang-Dao/instantTrack#citation">README</a>.</p>
+    <p class="note rv">Please also cite SuperMimic, InstantMimic, mjlab and LAFAN1. BibTeX entries for all of them are in the <a href="https://github.com/Huy-Quang-Dao/instantTrack#citation">README</a>.</p>
   </div>
 </section>
 
@@ -261,9 +302,11 @@ scripts/train.sh supermimic_ema sm_ema_s0 --seed 0 --max_hours 0.75</pre>
 
 <footer>
   <div class="wrap">
-    <p>InstantTrack code: MIT License. Videos show motions derived from LAFAN1 (CC BY-NC-ND 4.0) and are for non-commercial research and illustration only.</p>
+    <p>InstantTrack code: MIT License. The videos show motions derived from LAFAN1 (CC BY-NC-ND 4.0) and are for non-commercial research and illustration only.</p>
     <p>Page design inspired by the <a href="https://supermimic.github.io">SuperMimic project page</a>; written from scratch for InstantTrack.</p>
   </div>
 </footer>
+
+<script type="application/json" id="curves">{"t":[0.0,0.025,0.05,0.075,0.1,0.125,0.15,0.175,0.2,0.225,0.25,0.275,0.3,0.325,0.35,0.375,0.4,0.425,0.45,0.475,0.5,0.525,0.55,0.575,0.6,0.625,0.65,0.675,0.7,0.725,0.75],"sm":{"r":[0.0,0.0,0.0,0.306,0.306,0.482,0.545,0.553,0.553,0.606,0.646,0.646,0.719,0.719,0.705,0.705,0.769,0.769,0.774,0.774,0.775,0.775,0.789,0.794,0.794,0.801,0.806,0.806,0.806,0.795,0.757],"rlo":[0.0,0.0,0.0,0.306,0.306,0.482,0.545,0.553,0.553,0.606,0.646,0.646,0.719,0.719,0.705,0.705,0.769,0.769,0.774,0.774,0.775,0.775,0.789,0.794,0.794,0.801,0.806,0.806,0.806,0.795,0.757],"rhi":[0.0,0.0,0.0,0.306,0.306,0.482,0.545,0.553,0.553,0.606,0.646,0.646,0.719,0.719,0.705,0.705,0.769,0.769,0.774,0.774,0.775,0.775,0.789,0.794,0.794,0.801,0.806,0.806,0.806,0.795,0.757],"f":[40,40,40,20,20,12,12,13,13,12,10,10,3,3,5,5,1,1,3,3,2,2,1,0,0,0,2,2,2,3,5]},"ema":{"r":[0.0,0.0,0.001,0.002,0.151,0.4,0.54,0.545,0.584,0.601,0.63,0.646,0.675,0.749,0.781,0.784,0.795,0.795,0.799,0.805,0.819,0.826,0.83,0.825,0.836,0.836,0.842,0.842,0.845,0.847,0.847],"rlo":[0.0,0.0,0.0,0.002,0.002,0.302,0.509,0.509,0.567,0.579,0.617,0.628,0.628,0.742,0.775,0.781,0.789,0.789,0.789,0.79,0.812,0.816,0.825,0.817,0.833,0.833,0.84,0.84,0.844,0.846,0.846],"rhi":[0.0,0.0,0.002,0.002,0.45,0.45,0.558,0.567,0.606,0.617,0.644,0.667,0.754,0.754,0.788,0.788,0.8,0.8,0.812,0.814,0.83,0.832,0.832,0.832,0.838,0.838,0.845,0.845,0.846,0.848,0.848],"f":[40,40,40,40,31.7,18.3,12.3,12.3,12,12,12,11,9,2.7,0.7,0.3,0,0,0.3,0.7,0.3,0,0,1,0,0,0.3,0.3,0,0,0]},"it":{"r":[0.0,0.0,0.5,0.565,0.698,0.698,0.791,0.804,0.814,0.814,0.831,0.832,0.84,0.84,0.845,0.845,0.852,0.853,0.856,0.856,0.857,0.857,0.862,0.862,0.862,0.863,0.865,0.865,0.865,0.865,0.867],"rlo":[0.0,0.0,0.47,0.47,0.68,0.68,0.787,0.803,0.804,0.804,0.831,0.831,0.838,0.838,0.844,0.844,0.851,0.851,0.854,0.854,0.854,0.856,0.86,0.86,0.86,0.861,0.863,0.863,0.862,0.862,0.864],"rhi":[0.0,0.0,0.523,0.623,0.718,0.718,0.797,0.806,0.819,0.819,0.831,0.833,0.843,0.843,0.846,0.846,0.853,0.855,0.858,0.858,0.859,0.858,0.867,0.867,0.864,0.866,0.867,0.867,0.868,0.868,0.869],"f":[40,40,12.7,12.7,8,8,1,0,0.3,0.3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}</script>
 </body>
 </html>
