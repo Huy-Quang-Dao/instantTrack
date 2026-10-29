@@ -1,0 +1,19 @@
+# caches and build output
+.cache/
+__pycache__/
+*.pyc
+build_*.log
+
+# third-party data (downloaded by tools/download_data.sh) and generated assets
+data/
+# training runs: checkpoints, logs
+logs/
+*.pt
+# rendered videos and recorded trajectories (derived from CC BY-NC-ND LAFAN1 motions)
+*.mp4
+*.npz
+results/analysis/
+# third-party paper
+*.pdf
+# virtual environment
+.venv/

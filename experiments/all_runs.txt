@@ -1,0 +1,59 @@
+# Best config so far (E18): --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5   (held 0.82 & 0 fail at 0.29/0.30/0.35 h over 3 seeds)
+# --- more accurate: contact-aware world model ---
+e26_best_foot02_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --wm_foot_weight 0.02
+e27_best_foot05_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --wm_foot_weight 0.05
+# --- algorithm A: imagination anchored to logged trajectories (on-policy-corrections style) ---
+e34_best_anchored_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --anchored --fused_rot --compile_more
+# --- faster ---
+e28_best_wmonly200_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --wm_only_iters 200
+# --- kernel-level profile of the best config (InstantMimic-style), not a training run ---
+prof_best --torch_profile 5 --ckpt_minutes 0 --ckpt_every 1000000 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5
+e29_best_critic2_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --critic_epochs 2
+# --- GPU: fused 3x3 rotations (no cuBLAS bmm) ---
+prof_fusedrot --torch_profile 5 --ckpt_minutes 0 --ckpt_every 1000000 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot
+e39_best_fusedrot_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot
+prof_compilemore --torch_profile 5 --ckpt_minutes 0 --ckpt_every 1000000 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more
+e40_best_fusedrot_cm_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more
+e30_best_utd05_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --utd 0.5
+# --- confirm E40 (best + fused_rot + compile_more) and try CUDA graphs on top ---
+e41_gpu_s1 --seed 1 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more
+e42_gpu_s2 --seed 2 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more
+prof_cudagraphs --torch_profile 5 --ckpt_minutes 0 --ckpt_every 1000000 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --cudagraphs
+e43_gpu_cg_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --cudagraphs
+e31_best_k4_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --wm_window 4 --fused_rot --compile_more
+e32_best_h24_noise_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --horizon 24 --imag_action_noise 0.05 --fused_rot --compile_more
+e35_best_wm1024_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --wm_hidden 1024,1024,1024 --fused_rot --compile_more
+e36_best_h16_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --horizon 16 --fused_rot --compile_more
+e37_best_noclipval_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --pi_clip_value 0 --fused_rot --compile_more
+e38_best_beta07_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --pi_beta1 0.7 --fused_rot --compile_more
+# --- WM 1024^3 (E35: first 0.20 h) over seeds, and combined with wm_window 4 ---
+e44_wm1024_s1 --seed 1 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --wm_hidden 1024,1024,1024
+e45_wm1024_s2 --seed 2 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --wm_hidden 1024,1024,1024
+e46_wm1024_k4_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --wm_hidden 1024,1024,1024 --wm_window 4
+# --- asymptote / accuracy at 1.5 h vs E3 seed 0 (SuperMimic + EMA, 1.5 h) ---
+e33_best_long_s0 --seed 0 --max_hours 1.5 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more
+e47_wm1024_long_s0 --seed 0 --max_hours 1.5 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --wm_hidden 1024,1024,1024
+# --- anti-flicker: failure-focused resets (share of resets one bin before recent termination points) ---
+e48_fr03_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3
+e49_fr03_s1 --seed 1 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3
+e50_fr03_s2 --seed 2 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3
+e51_fr03_wm1024_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024
+e52_fr03_wm1024_s1 --seed 1 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024
+e53_fr03_wm1024_s2 --seed 2 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024
+# --- contact-mode world model on the best config (WM 1024^3 + fail_reset 0.3) ---
+e54_wc01_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --wm_contact 0.1
+e55_wc01_s1 --seed 1 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --wm_contact 0.1
+e56_wc01_s2 --seed 2 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --wm_contact 0.1
+e57_wc03_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --wm_contact 0.3
+# --- fair baseline: more SuperMimic + EMA seeds (E3 seed 1 shared the GPU, wall-clock invalid) ---
+e58_sm_ema_s1 --seed 1 --max_hours 0.75 --pi_ema 0.995
+e59_sm_ema_s2 --seed 2 --max_hours 0.75 --pi_ema 0.995
+# --- contact reward in imagination (contact-state matching + anti-slip), on the best config ---
+e60_cr05_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 0.5
+e61_cr10_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 1.0
+e62_cr05_s1 --seed 1 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 0.5
+e63_cr05_s2 --seed 2 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 0.5
+e64_cr025_s0 --seed 0 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 0.25
+e65_cr025_s1 --seed 1 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 0.25
+e66_cr025_s2 --seed 2 --max_hours 0.75 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 0.25
+e67_final_long_s0 --seed 0 --max_hours 1.5 --no_sync --fused_adam --pi_ema 0.995 --lr 4e-4 --wm_batches 5 --fused_rot --compile_more --fail_reset 0.3 --wm_hidden 1024,1024,1024 --contact_reward 0.25

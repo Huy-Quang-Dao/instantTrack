@@ -1,0 +1,32 @@
+[build-system]
+requires = ["uv_build>=0.8.19,<0.10.0"]
+build-backend = "uv_build"
+
+[project]
+name = "instanttrack"
+version = "1.0.0"
+description = "InstantTrack: SuperMimic-style world-model tracking with an InstantMimic-style GPU-native training loop, on mjlab."
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [{ name = "Huy-Quang-Dao" }, { name = "Chong Zhang" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "mjlab>=1.6.0",
+  "torch>=2.7.0",
+  "matplotlib",
+  "pillow",
+]
+
+[tool.uv]
+required-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# CUDA 12.8 torch (Blackwell-capable); pinned to versions tested with this code.
+constraint-dependencies = ["torch==2.9.0", "warp-lang==1.16.0"]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
