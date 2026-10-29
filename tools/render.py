@@ -17,13 +17,13 @@ from PIL import Image, ImageDraw, ImageFont
 from instanttrack.robot import RobotSpec, get_robot
 
 
-def two_robot_xml(robot: RobotSpec) -> str:
+def two_robot_xml(robot: RobotSpec, clean: bool = False, ghost_alpha: float = 0.25) -> str:
     xml = open(robot.mjcf_path).read()
     mjcf_dir = os.path.dirname(os.path.abspath(robot.mjcf_path))
     xml = re.sub(r'meshdir="([^"]*)"', lambda m: 'meshdir="' + os.path.join(mjcf_dir, m.group(1)) + '/"', xml)
     body = xml[xml.index(f'<body name="{robot.tracked_bodies[0]}"') : xml.index("</worldbody>")]
     ghost = re.sub(r' name="([^"]+)"', r' name="ref_\1"', body)
-    ghost = re.sub(r'rgba="[^"]*"', 'rgba="0.35 0.65 1.0 0.25"', ghost)
+    ghost = re.sub(r'rgba="[^"]*"', f'rgba="0.35 0.65 1.0 {ghost_alpha}"', ghost)
     ghost = re.sub(r' (contype|conaffinity|group)="[^"]*"', "", ghost)
     ghost = ghost.replace("<geom ", '<geom contype="0" conaffinity="0" group="1" ')
     scene = """
@@ -36,10 +36,14 @@ def two_robot_xml(robot: RobotSpec) -> str:
     <material name="grid" texture="grid" texrepeat="8 8" reflectance="0.1"/>
     <texture name="sky" type="skybox" builtin="gradient" rgb1="0.95 0.96 0.98" rgb2="0.75 0.8 0.88" width="256" height="256"/>
     """
+    if clean:  # page style: near-white sky and a faint floor grid, so the video blends into a light page
+        assets = assets.replace('rgb1="0.92 0.93 0.94" rgb2="0.80 0.82 0.85"', 'rgb1="0.965 0.965 0.972" rgb2="0.925 0.925 0.935"')
+        assets = assets.replace('reflectance="0.1"', 'reflectance="0.03" emission="0.75"')
+        assets = assets.replace('rgb1="0.95 0.96 0.98" rgb2="0.75 0.8 0.88"', 'rgb1="1 1 1" rgb2="0.96 0.96 0.97"')
     xml = xml.replace("<asset>", "<asset>" + assets, 1)
     xml = xml.replace("<mujoco", '<mujoco', 1)
     if "<visual>" not in xml:
-        xml = xml.replace("<asset>", '<visual><global offwidth="1280" offheight="720"/><quality shadowsize="4096"/></visual>\n  <asset>', 1)
+        xml = xml.replace("<asset>", '<visual><global offwidth="1920" offheight="1080"/><quality shadowsize="4096"/></visual>\n  <asset>', 1)
     return xml
 
 
@@ -55,6 +59,11 @@ def main():
     ap.add_argument("--width", type=int, default=960)
     ap.add_argument("--height", type=int, default=540)
     ap.add_argument("--title", type=str, default="")
+    ap.add_argument("--clean", action="store_true", help="page style: light background, no text overlay")
+    ap.add_argument("--ghost_alpha", type=float, default=0.25, help="opacity of the reference ghost (0 hides it)")
+    ap.add_argument("--distance", type=float, default=3.6)
+    ap.add_argument("--azimuth", type=float, default=135.0)
+    ap.add_argument("--elevation", type=float, default=-12.0)
     ap.add_argument("--global_ghost", action="store_true", help="draw the reference at its global xy instead of anchored to the robot")
     a = ap.parse_args()
 
@@ -63,13 +72,13 @@ def main():
     robot = get_robot(a.robot)
     nq = 7 + robot.num_joints
     lookat_z = float(np.median(d["ref_root_p"][:, 2]))
-    model = mujoco.MjModel.from_xml_string(two_robot_xml(robot))
+    model = mujoco.MjModel.from_xml_string(two_robot_xml(robot, a.clean, a.ghost_alpha))
     model.vis.headlight.ambient[:] = 0.45
     model.vis.headlight.diffuse[:] = 0.55
     data = mujoco.MjData(model)
     renderer = mujoco.Renderer(model, a.height, a.width)
     cam = mujoco.MjvCamera()
-    cam.distance, cam.azimuth, cam.elevation = 3.6, 135.0, -12.0
+    cam.distance, cam.azimuth, cam.elevation = a.distance, a.azimuth, a.elevation
     font = ImageFont.load_default(size=22) if hasattr(ImageFont, "load_default") else None
     clips = a.clips or names
     ff = subprocess.Popen(
@@ -102,6 +111,16 @@ def main():
             cam.lookat[:] = [data.qpos[0], data.qpos[1], lookat_z]
             renderer.update_scene(data, camera=cam)
             img = Image.fromarray(renderer.render())
+            if a.clean:  # no text; a small badge once the clip has terminated
+                if fell_at is not None:
+                    draw = ImageDraw.Draw(img)
+                    s = max(1, a.height // 540)
+                    bf = ImageFont.load_default(size=20 * s) if hasattr(ImageFont, "load_default") else None
+                    bb = draw.textbbox((24 * s, 20 * s), "terminated", font=bf)
+                    draw.rounded_rectangle((bb[0] - 12 * s, bb[1] - 7 * s, bb[2] + 12 * s, bb[3] + 7 * s), radius=14 * s, fill=(235, 104, 52))
+                    draw.text((24 * s, 20 * s), "terminated", fill=(255, 255, 255), font=bf)
+                ff.stdin.write(np.asarray(img).tobytes())
+                continue
             draw = ImageDraw.Draw(img)
             label = f"{a.title}  {clip}  t={(f - int(d['clip_start'][c])) * 0.02:5.1f}s"
             if fell_at is not None:
