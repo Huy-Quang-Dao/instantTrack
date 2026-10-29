@@ -7,7 +7,7 @@ name = "instanttrack"
 version = "1.0.0"
 description = "InstantTrack: SuperMimic-style world-model tracking with an InstantMimic-style GPU-native training loop, on mjlab."
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 readme = "README.md"
 authors = [{ name = "Huy-Quang-Dao" }, { name = "Chong Zhang" }]
 requires-python = ">=3.10,<3.14"

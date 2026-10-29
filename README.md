@@ -344,8 +344,9 @@ our runs, copied from `logs/`. To report your own runs, copy them there or pass 
   arXiv:2610.28480, 2026 ([project page](https://supermimic.github.io)). InstantTrack is an
   independent work and is not affiliated with or endorsed by the SuperMimic authors.
 - **Code base.** InstantTrack started from [`supermimic_vibed`](https://github.com/zita-ch/supermimic_vibed)
-  by Chong Zhang (ETH Zurich), an unofficial SuperMimic reimplementation released under the MIT
-  License, in its mjlab port. The original copyright notice is kept in [LICENSE](LICENSE).
+  by Chong Zhang (ETH Zurich), an unofficial SuperMimic reimplementation, in its mjlab port. The parts
+  derived from it remain under its MIT License (Copyright (c) 2026 ETH Zurich, Chong Zhang), whose
+  notice is kept in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - **Training-loop engineering** follows the ideas of I. Choi, G. Leem, J. Won, *InstantMimic: A High
   Performance System for Learning Physics-based Skills in Seconds*, arXiv:2609.09821, 2026: profile
   first, fuse kernels, remove host syncs.
@@ -424,6 +425,5 @@ particular SuperMimic, InstantMimic, mjlab and LAFAN1:
 
 ## License
 
-The code is released under the [MIT License](LICENSE).
-Copyright (c) 2026 Huy-Quang-Dao (InstantTrack) and Copyright (c) 2026 ETH Zurich, Chong Zhang
-(the `supermimic_vibed` code it builds on). Data-derived files are excluded; see above.
+The code is released under the [MIT License](LICENSE). Copyright (c) 2026 Huy-Quang-Dao.
+Data-derived files (GIF, videos, checkpoints) are excluded; see [Attribution and licenses](#attribution-and-licenses).
