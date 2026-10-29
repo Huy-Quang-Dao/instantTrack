@@ -1,0 +1,11 @@
+/* InstantTrack additions to the adapted SuperMimic page styles */
+.hkey{display:grid;grid-template-columns:1fr 1fr;width:100%;margin:-12px 0 14px;font:600 15px/1.2 var(--display);color:var(--ink)}
+.hkey span{display:flex;align-items:center;justify-content:center;gap:8px}
+.hkey i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.hkey .k-sm{background:var(--blue-50)}
+.hkey .k-it{background:var(--blue)}
+@media (min-width:735px){.hkey{font-size:17px;margin:-24px 0 20px}}
+.wtile{min-height:0}
+@media (min-width:735px){.wtile{min-height:340px}}
+.wtile>p{margin-top:auto}
+.paper .credit{max-width:760px;margin:28px auto 0;font-size:14px;line-height:1.5;color:var(--ink2)}
