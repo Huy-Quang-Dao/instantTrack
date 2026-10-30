@@ -81,21 +81,28 @@ class WorldModel(nn.Module):
     """
 
     def __init__(self, num_j: int, xi_dim: int, use_prev_action: bool = False, hidden=(2048, 2048, 2048),
-                 contact_modes: bool = False):  # fmt: skip
+                 contact_modes: bool = False, ens_heads: int = 1):  # fmt: skip
         """``contact_modes`` (InstantTrack): the last layer predicts the two feet's next-step ground contact
         and one increment head per contact mode (flight, left, right, double support); the increment is the
         mixture of the heads weighted by the predicted mode probabilities, so each head stays smooth within
-        its mode instead of one MLP smoothing across touch-down and lift-off."""
+        its mode instead of one MLP smoothing across touch-down and lift-off.
+
+        ``ens_heads`` K > 1 (InstantTrack): a shared trunk with K increment heads; the model predicts their
+        mean, and their spread (variance in normalized increment units) measures epistemic uncertainty."""
         super().__init__()
         self.num_j = num_j
         self.use_prev_action = use_prev_action
         self.contact_modes = contact_modes
+        self.ens_heads = ens_heads
+        assert not (contact_modes and ens_heads > 1)
         self.in_dim = inv_dim(num_j) + num_j * (2 if use_prev_action else 1) + xi_dim
         self.out_dim = 3 + 3 + 3 + 3 + num_j + num_j
-        n_out = 4 * self.out_dim + 2 if contact_modes else self.out_dim
+        n_out = 4 * self.out_dim + 2 if contact_modes else ens_heads * self.out_dim
         self.net = mlp(self.in_dim, list(hidden), n_out, act=nn.SiLU, layer_norm=True)
         nn.init.zeros_(self.net[-1].weight)
         nn.init.zeros_(self.net[-1].bias)
+        if ens_heads > 1:  # distinct heads (the mean still starts near zero)
+            nn.init.normal_(self.net[-1].weight, std=1e-2)
         self.in_norm = RunningNorm(self.in_dim)
         self.out_norm = RunningNorm(self.out_dim, eps=1e-4)
 
@@ -130,8 +137,26 @@ class WorldModel(nn.Module):
 
     def step_c(self, S, a, a_prev, xi_n):
         """Next state and next-step foot-contact logits (B, 2), or None without ``contact_modes``."""
-        p, R, v, w, q, qd = S
+        S1, logits, _ = self.step_full(S, a, a_prev, xi_n)
+        return S1, logits
+
+    def step_full(self, S, a, a_prev, xi_n):
+        """Next state, contact logits (or None) and the per-head normalized increments (B, K, D) (or None)."""
         y = run_mlp(self.net, self.in_norm(self.inputs(S, a, a_prev, xi_n)))
+        heads = None
+        if self.ens_heads > 1:
+            heads = y.unflatten(-1, (self.ens_heads, self.out_dim))
+            y = heads.mean(-2)
+        S1, logits = self.integrate(S, y)
+        return S1, logits, heads
+
+    @staticmethod
+    def disagreement(heads):
+        """Mean over dimensions of the across-head variance, in normalized increment units: (B,)."""
+        return heads.var(-2, unbiased=False).mean(-1)
+
+    def integrate(self, S, y):
+        p, R, v, w, q, qd = S
         logits = None
         if self.contact_modes:
             logits = y[..., -2:]
@@ -170,17 +195,35 @@ class WorldModel(nn.Module):
 
 
 class Policy(nn.Module):
-    """a = dec(enc(g), o_{t-9:t}); deterministic, latent z in R^32 bounded by tanh."""
+    """a = dec(enc(g), o_{t-9:t}); deterministic, latent z in R^32 bounded by tanh.
+
+    ``ref_residual`` > 0 (InstantTrack): the decoder outputs a correction on top of the next reference
+    joint pose read from the goal, a = dec(...) + beta * (q_ref(f+1) - q_default) / alpha, so the
+    untrained policy already commands the reference. ``q_default`` and ``alpha`` are buffers (set by
+    ``set_reference_action``, then saved in the state dict)."""
 
     def __init__(self, obs_dim: int, goal_dim: int, act_dim: int, hist: int = 10, z_dim: int = 32,
-                 enc_hidden=(2048, 1024, 512, 256), dec_hidden=(2048, 1024, 512, 256)):  # fmt: skip
+                 enc_hidden=(2048, 1024, 512, 256), dec_hidden=(2048, 1024, 512, 256), ref_residual: float = 0.0,
+                 experts: int = 1):  # fmt: skip
+        """``experts`` E > 1 (InstantTrack): E decoders mixed by a softmax gate on the motion latent z, so
+        dissimilar motions (walking, dancing, getting up) need not share one decoder."""
         super().__init__()
         self.hist = hist
+        self.ref_residual = ref_residual
+        self.experts = experts
+        if ref_residual > 0:
+            self.register_buffer("q_default", torch.zeros(act_dim))
+            self.register_buffer("alpha", torch.ones(act_dim))
         self.enc = mlp(goal_dim, list(enc_hidden), z_dim)
         self.dec = mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim)
+        if experts > 1:
+            self.decs = nn.ModuleList([self.dec] + [mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim) for _ in range(experts - 1)])
+            self.gate = nn.Linear(z_dim, experts)
+            nn.init.zeros_(self.gate.weight), nn.init.zeros_(self.gate.bias)
         with torch.no_grad():
-            self.dec[-1].weight.mul_(0.01)
-            self.dec[-1].bias.zero_()
+            for d in self.decs if experts > 1 else [self.dec]:
+                d[-1].weight.mul_(0.01)
+                d[-1].bias.zero_()
         self.obs_norm = RunningNorm(obs_dim)
         self.goal_norm = RunningNorm(goal_dim)
 
@@ -188,7 +231,19 @@ class Policy(nn.Module):
         """obs_hist: (B, hist, obs_dim) noisy observations, newest last."""
         z = torch.tanh(run_mlp(self.enc, self.goal_norm(goal)))
         o = self.obs_norm(obs_hist).flatten(-2)
-        return run_mlp(self.dec, torch.cat((z, o), -1))
+        x = torch.cat((z, o), -1)
+        if self.experts > 1:
+            gw = torch.softmax(self.gate(z), -1)
+            a = sum(gw[..., e : e + 1] * run_mlp(d, x) for e, d in enumerate(self.decs))
+        else:
+            a = run_mlp(self.dec, x)
+        if self.ref_residual > 0:  # goal frame 1 = [dp 3, rot 6, v 3, w 3, q J, qd J]
+            q_next = goal[..., 15 : 15 + a.shape[-1]]
+            a = a + self.ref_residual * (q_next - self.q_default) / self.alpha
+        return a
+
+    def set_reference_action(self, q_default: torch.Tensor, alpha: torch.Tensor):
+        self.q_default.copy_(q_default), self.alpha.copy_(alpha)
 
 
 class Critic(nn.Module):

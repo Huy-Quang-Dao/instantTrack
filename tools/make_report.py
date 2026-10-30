@@ -16,13 +16,14 @@ import matplotlib.pyplot as plt
 
 TARGET = 0.82
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
-COLORS = {"InstantTrack": "#2a78d6", "SuperMimic + EMA": "#eb6834", "SuperMimic": "#8a8984"}
+COLORS = {"InstantTrack v1.1": "#2a78d6", "InstantTrack v1.0": "#86b3e8", "SuperMimic + EMA": "#eb6834", "SuperMimic": "#8a8984"}
 
-# 3 seeds per method; plain SuperMimic has one 2 h run (it needs ~1.5 h to reach the target)
+# 3 seeds per method (v1.1: 5); plain SuperMimic has one 2 h run (it needs ~1.5 h to reach the target)
 METHODS = {
     "SuperMimic": ["e0_supermimic_s0"],
     "SuperMimic + EMA": ["e3_supermimic_ema_s0", "e58_sm_ema_s1", "e59_sm_ema_s2"],
-    "InstantTrack": ["e64_cr025_s0", "e65_cr025_s1", "e66_cr025_s2"],
+    "InstantTrack v1.0": ["e64_cr025_s0", "e65_cr025_s1", "e66_cr025_s2"],
+    "InstantTrack v1.1": ["e71_rres10_s0", "e73_rres10_s1", "e74_rres10_s2", "e78_rres10_s3", "e79_rres10_s4"],
 }
 
 # cumulative ladder from SuperMimic to InstantTrack: (label, runs) — each row adds one change
@@ -34,7 +35,9 @@ LADDER = [
     ("+ compiled reward / obs / goal (`--compile_more`)", ["e40_best_fusedrot_cm_s0", "e41_gpu_s1", "e42_gpu_s2"]),
     ("+ world model 1024³ (was 2048³)", ["e35_best_wm1024_s0", "e44_wm1024_s1", "e45_wm1024_s2"]),
     ("+ failure-focused resets (`--fail_reset 0.3`)", ["e51_fr03_wm1024_s0", "e52_fr03_wm1024_s1", "e53_fr03_wm1024_s2"]),
-    ("+ contact reward 0.25 = **InstantTrack**", ["e64_cr025_s0", "e65_cr025_s1", "e66_cr025_s2"]),
+    ("+ contact reward 0.25 = **InstantTrack v1.0**", ["e64_cr025_s0", "e65_cr025_s1", "e66_cr025_s2"]),
+    ("+ reference-residual policy (`--ref_residual 1.0`) = **InstantTrack v1.1**",
+     ["e71_rres10_s0", "e73_rres10_s1", "e74_rres10_s2", "e78_rres10_s3", "e79_rres10_s4"]),
 ]
 
 # single-axis changes that did not help (all on top of the configuration named in the note)
@@ -55,6 +58,13 @@ NEGATIVE = [
     ("WM window 4", ["e31_best_k4_s0"], "+ compile_more"),
     ("Contact-mode world model (`--wm_contact 0.1`)", ["e54_wc01_s0", "e55_wc01_s1", "e56_wc01_s2"], "+ fail_reset"),
     ("Contact reward 0.5", ["e60_cr05_s0", "e62_cr05_s1", "e63_cr05_s2"], "+ fail_reset"),
+    ("Wide-kernel root reward 0.5, std 1 m (`--root_reward`)", ["e68_rr05_s0"], "v1.0"),
+    ("Wide-kernel root reward 1.0, std 1 m", ["e69_rr10_s0"], "v1.0"),
+    ("Wide-kernel root reward 0.5, std 0.5 m", ["e70_rr05std05_s0"], "v1.0"),
+    ("Reference residual β = 0.5 (v1.1 uses 1.0; same seed: 0.15 h)", ["e72_rres05_s0"], "v1.0"),
+    ("WM ensemble, 4 heads, disagreement penalty 100 (`--wm_ens`)", ["e75_rres_ens4p100_s0"], "v1.1"),
+    ("WM ensemble, 4 heads, disagreement penalty 300", ["e76_rres_ens4p300_s0"], "v1.1"),
+    ("Mixture-of-experts policy, 2 decoders (`--pi_experts 2`)", ["e77_rres_moe2_s0"], "v1.1"),
 ]
 
 
@@ -100,6 +110,8 @@ def main():
     out = []
     S = {m: summary(r) for m, r in METHODS.items()}
     base = st.mean(S["SuperMimic + EMA"]["held_h"])
+    out.append("A second v1.1 run of seed 0 for 1.5 h (`e80_rres10_long_s0`) held the target from "
+               f"{held(read_eval('e80_rres10_long_s0'))[0]:.2f} h.\n")
 
     out.append("## Time to target (return ≥ 0.82 with 0/40 failed clips, held for 3 checkpoints)\n")
     out.append("| method | seeds | held at (h) | mean (h) | iteration at held | it/s | speed-up vs SuperMimic + EMA |")

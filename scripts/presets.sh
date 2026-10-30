@@ -7,6 +7,8 @@ declare -A PRESET=(
   [supermimic_ema]="--pi_ema 0.995"
   # InstantTrack without the contact reward: best normalized return / pose accuracy
   [instanttrack_track]="--pi_ema 0.995 --no_sync --fused_adam --fused_rot --compile_more --lr 4e-4 --wm_batches 5 --wm_hidden 1024,1024,1024 --fail_reset 0.3"
-  # InstantTrack (main configuration): + contact-matching / anti-slip reward in imagination
-  [instanttrack]="--pi_ema 0.995 --no_sync --fused_adam --fused_rot --compile_more --lr 4e-4 --wm_batches 5 --wm_hidden 1024,1024,1024 --fail_reset 0.3 --contact_reward 0.25"
+  # InstantTrack v1.0: + contact-matching / anti-slip reward in imagination
+  [instanttrack_v1.0]="--pi_ema 0.995 --no_sync --fused_adam --fused_rot --compile_more --lr 4e-4 --wm_batches 5 --wm_hidden 1024,1024,1024 --fail_reset 0.3 --contact_reward 0.25"
+  # InstantTrack v1.1 (main configuration): v1.0 + policy as a correction on top of the next reference joint pose
+  [instanttrack]="--pi_ema 0.995 --no_sync --fused_adam --fused_rot --compile_more --lr 4e-4 --wm_batches 5 --wm_hidden 1024,1024,1024 --fail_reset 0.3 --contact_reward 0.25 --ref_residual 1.0"
 )

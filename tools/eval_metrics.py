@@ -12,7 +12,7 @@ Per checkpoint, averaged over all alive control steps of all 40 clips:
   pen_mm        mean ankle-height deficit below the flat-foot height (ground penetration proxy)
 plus normalized return and failed clips.
 
-    uv run python tools/eval_metrics.py logs/<run_a>/ckpt_008510.pt logs/<run_b>/ckpt_017324.pt --out results/metrics
+    uv run python tools/eval_metrics.py logs/e3_supermimic_ema_s0/ckpt_008444.pt logs/e18_.../ckpt_009000.pt --out results/metrics
 """
 
 import argparse
@@ -53,7 +53,7 @@ def load_policy(ck):
     a_ = ck["args"]
     widths = lambda key: tuple(int(x) for x in a_.get(key, "2048,1024,512,256").split(","))  # noqa: E731
     pi = Policy(mdp.obs_dim, motion.goal_dim(a_["goal_frames"]), robot.num_joints, hist=a_["hist"],
-                enc_hidden=widths("enc_hidden"), dec_hidden=widths("dec_hidden")).to(dev)  # fmt: skip
+                enc_hidden=widths("enc_hidden"), dec_hidden=widths("dec_hidden"), ref_residual=a_.get("ref_residual", 0.0), experts=a_.get("pi_experts", 1)).to(dev)  # fmt: skip
     pi.load_state_dict(ck["pi"])
     return pi.eval()
 

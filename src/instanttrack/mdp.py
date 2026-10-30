@@ -114,12 +114,14 @@ class MDP:
         return o + (2 * torch.rand_like(o) - 1) * self.obs_noise
 
     # ---------------- reward / termination ----------------
-    def reward(self, S, f, a, a_prev, terms: bool = False, w_contact: float = 0.0):
+    def reward(self, S, f, a, a_prev, terms: bool = False, w_contact: float = 0.0, w_root: float = 0.0, root_std: float = 1.0):
         """Per-step reward (already multiplied by dt) comparing S with reference frame f.
 
         ``w_contact`` > 0 adds the InstantTrack contact term: a smooth foot-contact indicator (ankle-roll
         origin below 4.5 cm) matched to the reference's contact state, plus low horizontal foot speed while
-        the reference foot is down. Evaluation keeps ``w_contact = 0``, i.e. the paper's reward."""
+        the reference foot is down. ``w_root`` > 0 adds a wide-kernel global root position term (std
+        ``root_std``) whose gradient does not vanish at the 0.3 m kernel's tail, against slow drift.
+        Evaluation keeps both at 0, i.e. the paper's reward."""
         c, m = self.cfg, self.motion
         p, R, v, w, q, qd = S
         bp, bR, bv, bw = self.kin.forward(p, R, v, w, q, qd)
@@ -152,6 +154,8 @@ class MDP:
             slip = (bv[..., self.feet, :2] ** 2).sum(-1)
             r_contact = (1 - (c_sim - c_ref) ** 2) + c_ref * torch.exp(-slip / 0.3**2)
             r = r + w_contact * r_contact.mean(-1) * CONTROL_DT
+        if w_root > 0:
+            r = r + w_root * torch.exp(-e_rp / root_std**2) * CONTROL_DT
         if terms:
             return r, {
                 "track": r_track * CONTROL_DT,

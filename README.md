@@ -1,11 +1,17 @@
 # InstantTrack
 
-**Whole-body motion tracking for the Unitree G1 in 15 minutes on one GPU.**
+**Whole-body motion tracking for the Unitree G1 in about 12 minutes on one GPU.**
 InstantTrack trains a single policy for all 40 LAFAN1 clips (2.45 h of motion) to an evaluation
-normalized return of 0.82 with **0/40 failed clips in 0.25 h on one RTX 5090**. On the same machine,
-simulator, MDP and evaluator, our reimplementation of SuperMimic needs **1.50 h**, and SuperMimic with
-the policy EMA we add needs **0.55 h**. InstantTrack is also more accurate and makes cleaner foot
-contact.
+normalized return of 0.82 with **0/40 failed clips in 0.19 h on one RTX 5090** (mean of 5 seeds,
+range 0.15–0.25 h). On the same machine, simulator, MDP and evaluator, our reimplementation of
+SuperMimic needs **1.50 h**, and SuperMimic with the policy EMA we add needs **0.55 h**. InstantTrack
+is also more accurate and makes cleaner foot contact.
+
+> **v1.1.0 (2026-10-30).** The policy now outputs a correction on top of the next reference joint
+> pose (`--ref_residual 1.0`). Time to target: 0.25 h → **0.19 h** (2.2× → **2.8×** over SuperMimic +
+> EMA), with lower pose errors and no change in iterations per second. Details in
+> [What's new in v1.1](#whats-new-in-v11) and [CHANGELOG.md](CHANGELOG.md). The v1.0 configuration
+> stays available as the `instanttrack_v1.0` preset.
 
 InstantTrack builds on SuperMimic (one differentiable world model, backpropagation through imagined
 rollouts) and adds InstantMimic-style GPU work on the training loop, a few algorithmic changes and a
@@ -14,33 +20,98 @@ installed with [uv](https://docs.astral.sh/uv/).
 
 **Project page:** <https://huy-quang-dao.github.io/instantTrack/>
 
-![Same 15 minutes of training. Left: SuperMimic + EMA falls on fallAndGetUp1_subject1. Right: InstantTrack tracks it.](media/equal_time_15min.gif)
+![Same 9 minutes of training: SuperMimic + EMA, InstantTrack v1.0 and InstantTrack v1.1 on fallAndGetUp1_subject4.](media/equal_time_9min.gif)
 
-*Both policies trained for 15 minutes (0.25 h) on one RTX 5090. Left: SuperMimic + EMA loses
-`fallAndGetUp1_subject1` at 8.4 s (it still fails 9 of 40 clips). Right: InstantTrack, 0 of 40 clips
-failed. Solid robot: policy simulated in MuJoCo Warp. Blue ghost: reference motion.*
+*All three policies trained for 9 minutes (0.15 h) on one RTX 5090, shown on `fallAndGetUp1_subject4`.
+At this checkpoint, over all 40 clips, SuperMimic + EMA fails 12, InstantTrack v1.0 fails 2 and
+InstantTrack v1.1 fails 0 (`eval.csv` of seed 0). Solid robot: policy simulated in MuJoCo Warp. Faint
+blue ghost: reference motion. More videos on the [project page](https://huy-quang-dao.github.io/instantTrack/).*
 
-| on 1× RTX 5090, 40 LAFAN1 clips, 3 seeds | SuperMimic | SuperMimic + EMA | **InstantTrack** |
-|---|---|---|---|
-| time to return ≥ 0.82 with 0/40 failed clips (held ×3) | 1.50 h (1 seed) | 0.55 h (0.50 / 0.54 / 0.60) | **0.25 h (0.25 / 0.25 / 0.25)** |
-| speed-up | 1× | 2.7× | **6.0×** (2.2× over SuperMimic + EMA) |
-| training iterations per second | 3.05 | 3.08 | **6.32** |
-| return / failed clips after 0.25 h | 0.646 / 10 | 0.630 / 12 | **0.831 / 0** |
-| contact agreement with the reference (0.75 h) | 0.727 | 0.719 | **0.812** |
-| foot slip in contact, cm/s (0.75 h; the reference itself: 10.2) | 8.44 | 8.00 | **6.62** |
+| on 1× RTX 5090, 40 LAFAN1 clips | SuperMimic | SuperMimic + EMA | InstantTrack v1.0 | **InstantTrack v1.1** |
+|---|---|---|---|---|
+| seeds | 1 | 3 | 3 | 5 |
+| time to return ≥ 0.82 with 0/40 failed clips (held ×3), mean | 1.50 h | 0.55 h | 0.25 h | **0.19 h** |
+| per seed | 1.50 | 0.50 / 0.54 / 0.60 | 0.25 / 0.25 / 0.25 | 0.15 / 0.16 / 0.25 / 0.20 / 0.20 |
+| speed-up over SuperMimic + EMA | 0.4× | 1× | 2.2× | **2.8×** |
+| training iterations per second | 3.05 | 3.08 | 6.32 | 6.28 |
+| return / failed clips after 0.15 h (mean) | 0.545 / 12 | 0.540 / 12.3 | 0.791 / 1.0 | **0.822 / 0.2** |
+| body orientation error, 0.75 h (°) | 12.5 | 11.1 | 7.5 | **6.5** |
+| contact agreement with the reference, 0.75 h | 0.727 | 0.719 | 0.812 | **0.817** |
+| foot slip in contact, 0.75 h (cm/s; the reference itself: 10.2) | 8.44 | 8.00 | 6.62 | **6.59** |
 
 All numbers come from runs in this repository. Each run's evaluation log and training log are in
 [`results/runs/`](results/runs/), and every table and figure is regenerated from them by
 `tools/make_report.py`. Read [How to read these numbers](#how-to-read-these-numbers) before quoting
 them.
 
-**Contents:** [What InstantTrack changes](#what-instanttrack-changes) ·
+**Contents:** [What's new in v1.1](#whats-new-in-v11) · [What InstantTrack changes](#what-instanttrack-changes) ·
 [Results](#results) · [How to read these numbers](#how-to-read-these-numbers) ·
 [Setup](#setup) · [Training](#training) · [Evaluation](#evaluation-and-metrics) ·
 [Reproducing the tables](#reproducing-the-tables) · [Repository layout](#repository-layout) ·
 [Attribution and licenses](#attribution-and-licenses) · [Citation](#citation)
 
 ---
+
+## What's new in v1.1
+
+Release date 2026-10-30. Full list in [CHANGELOG.md](CHANGELOG.md).
+
+**Change.** One architectural change to the policy head, enabled by `--ref_residual 1.0` and part of
+the `instanttrack` preset. In SuperMimic, and in InstantTrack v1.0, the decoder's output *a* is an
+offset from the robot's default standing pose: the joint targets are q_default + α·a. An untrained
+policy therefore commands the standing pose, and the first training minutes are spent learning to
+reproduce the reference motion itself. In v1.1 the decoder outputs a correction on top of the next
+reference joint pose, which the policy already receives in its goal input:
+
+  a = decoder(z, o) + β · (q_ref(t+1) − q_default) / α,  with β = 1.
+
+The joint targets become q_ref(t+1) + α·decoder(z, o). Nothing else changes: the simulator, world
+model, reward, observation, evaluation and deployment inputs are the same. The policy does not need
+any new input, and the extra cost is one addition per step. q_default and α are stored as buffers in
+the checkpoint, and `eval_batch.py`, `eval_metrics.py`, `evaluate.py` and `export_onnx.py` read the
+flag from the checkpoint's `args`.
+
+**Effect.** Same protocol as v1.0: a checkpoint every 3 minutes, evaluated offline on all 40 clips.
+
+| | v1.0 | v1.1 |
+|---|---|---|
+| seeds | 3 | 5 |
+| first checkpoint with return ≥ 0.82 and 0 failed clips | 0.25 / 0.25 / 0.25 h | 0.15 / 0.16 / 0.15 / 0.15 / 0.15 h |
+| same, held for 3 checkpoints | 0.25 / 0.25 / 0.25 h (mean 0.25) | 0.15 / 0.16 / 0.25 / 0.20 / 0.20 h (mean 0.19) |
+| iterations at "held" | 5900 / 6000 / 5956 | 3687 / 4000 / 5847 / 4868 / 4787 |
+| iterations per second | 6.32 | 6.28 |
+| return, 0.75 h (3 seeds) | 0.867 ± 0.001 | 0.872 ± 0.003 |
+| body position / orientation error, 0.75 h | 3.53 cm / 7.5° | 3.20 cm / 6.5° |
+| joint error, 0.75 h | 4.56° | 4.12° |
+| contact agreement / foot slip, 0.75 h | 0.812 / 6.62 cm/s | 0.817 / 6.59 cm/s |
+| penetration, 0.75 h | 0.052 mm | 0.055 mm |
+| root drift, 0.75 h | 61 ± 5 cm | 61 ± 3 cm |
+| 1.5 h run (seed 0): return / body ori / contact agreement | 0.877 / 6.4° / 0.829 | 0.881 / 5.8° / 0.837 |
+
+The gain is in iterations, not in speed per iteration: v1.1 reaches the target in 3.7k–5.8k
+iterations instead of ~6k. Every v1.1 seed reaches the target at the first or second checkpoint
+after 0.15 h. In three of five seeds the "held ×3" time is later, because one or two hard clips
+(`fallAndGetUp1_subject5`, `fallAndGetUp2_subject2`, `jumps1_subject2`) fail at a single checkpoint.
+With the 1.5 h run, normalized return now matches SuperMimic + EMA (0.881 vs 0.879–0.880), which v1.0
+did not (0.877).
+
+**What did not change or got worse.** Root drift is unchanged and still worse than SuperMimic + EMA
+(55–64 cm vs 50–54 cm). Penetration is 0.003 mm higher than v1.0. A β of 0.5 is between v1.0 and
+v1.1 (0.17 h, one seed).
+
+**Tried in this round and not adopted** (all single seed, listed with numbers under
+[What did not help](#what-did-not-help); the flags are kept so the runs can be reproduced):
+- `--root_reward`: a wide-kernel global root-position term in imagination, aimed at the root drift.
+  Drift did not improve (56–60 cm) and time to target did not improve.
+- `--wm_ens K --wm_ens_pen λ`: K increment heads on the world-model trunk and an imagination penalty
+  on their disagreement. The heads' disagreement collapses to ~1e-4, and the penalty slowed learning
+  (0.25 h and 0.35 h vs 0.15 h).
+- `--pi_experts 2`: a mixture-of-experts policy decoder gated on the motion latent. Same iterations
+  to target, but 18 % fewer iterations per second (0.20 h).
+
+**Compatibility.** No breaking change. Checkpoints and logs from v1.0 load and evaluate as before: the
+new flags default to the v1.0 behaviour, and the v1.0 configuration is the `instanttrack_v1.0`
+preset. The `instanttrack` preset now means v1.1.
 
 ## What InstantTrack changes
 
@@ -62,6 +133,7 @@ randomization and evaluator.
 | Smaller world model | `--wm_hidden 1024,1024,1024` | architecture size | Same per-iteration learning and +28 % iterations per second. |
 | Failure-focused resets | `--fail_reset 0.3` | algorithm | Tracks a per-bin termination rate (EMA) at the 1 s bin where each episode fails. 30 % of resets start one bin before recent failure points, mixed with SuperMimic's return-based bin sampling. Removes most of the single-clip "flicker" that delays the 3-checkpoint criterion. |
 | Contact reward | `--contact_reward 0.25` | reward (training only) | In imagination, a differentiable foot-contact indicator, σ((4.5 cm − z_ankle) / 5 mm), is matched to the reference contact state, and horizontal foot speed is penalized while the reference foot is down. **Evaluation uses the unchanged SuperMimic reward.** |
+| Reference-residual policy (v1.1) | `--ref_residual 1.0` | architecture | The decoder outputs a correction on top of the next reference joint pose (read from the goal input) instead of an offset from the default pose, so an untrained policy already commands the reference. |
 
 Per iteration, the systems changes take the training loop from 315 ms to 209 ms under
 `torch.profiler`, and from 25.3k to 15.2k CUDA kernel launches. The largest single item was ~57 ms of
@@ -87,11 +159,14 @@ held-for-3 conditions, so a single lucky checkpoint does not count.
 |---|---|---|---|---|---|---|
 | SuperMimic | 1 | 1.50 | 1.50 | 16665 | 3.05 | 0.4× |
 | SuperMimic + EMA | 3 | 0.50 / 0.54 / 0.60 | 0.55 | 5749 / 6000 / 6971 | 3.08 | 1.0× |
-| **InstantTrack** | 3 | **0.25 / 0.25 / 0.25** | **0.25** | 5900 / 6000 / 5956 | **6.32** | **2.2×** |
+| InstantTrack v1.0 | 3 | 0.25 / 0.25 / 0.25 | 0.25 | 5900 / 6000 / 5956 | 6.32 | 2.2× |
+| **InstantTrack v1.1** | 5 | **0.15 / 0.16 / 0.25 / 0.20 / 0.20** | **0.19** | 3687 / 4000 / 5847 / 4868 / 4787 | 6.28 | **2.8×** |
 
-The 2.2× has two sources. InstantTrack runs ~2× more iterations per second, and it needs about the
-same number of iterations as SuperMimic + EMA (5900–6000 against 5749–6971) even with the smaller
-world model. A fourth, 1.5 h InstantTrack run (`e67_final_long_s0`) held the target from **0.20 h**.
+The speed-up has two sources. InstantTrack runs ~2× more iterations per second than SuperMimic, and
+v1.1 also needs fewer iterations: 3.7k–5.8k, against 5.7k–7.0k for SuperMimic + EMA and ~6k for
+v1.0. Two additional 1.5 h runs of seed 0 held the target from **0.20 h** (v1.0,
+`e67_final_long_s0`, and v1.1, `e80_rres10_long_s0`). The median of the five v1.1 seeds is 0.20 h;
+the first checkpoint that meets the target is at 0.15–0.16 h for all five.
 
 ### Equal training time
 
@@ -103,7 +178,8 @@ Mean over seeds of normalized return / failed clips:
 |---|---|---|---|---|
 | SuperMimic (1 seed) | 0.545 / 12 | 0.646 / 10 | 0.775 / 2 | 0.757 / 5 |
 | SuperMimic + EMA | 0.540 / 12.3 | 0.630 / 12.0 | 0.819 / 0.3 | 0.847 / 0.0 |
-| **InstantTrack** | **0.791 / 1.0** | **0.831 / 0.0** | **0.857 / 0.0** | **0.867 / 0.0** |
+| InstantTrack v1.0 | 0.791 / 1.0 | 0.831 / 0.0 | 0.857 / 0.0 | 0.867 / 0.0 |
+| **InstantTrack v1.1** (5 seeds) | **0.822 / 0.2** | **0.844 / 0.0** | **0.865 / 0.0** | **0.871 / 0.0** |
 
 ### Tracking accuracy and contact
 
@@ -115,8 +191,11 @@ Mean ± std over 3 seeds, after **0.75 h** of training:
 |---|---|---|---|---|---|---|---|---|---|
 | SuperMimic (1 seed) | 0.775 | 4 | 5.29 | 12.5 | 6.15 | 0.727 | 8.44 | 0.066 | 116 |
 | SuperMimic + EMA | 0.852 ± 0.002 | 0 | 4.60 ± 0.03 | 11.1 ± 0.2 | 5.61 ± 0.05 | 0.719 ± 0.001 | 8.00 ± 0.06 | 0.063 ± 0.003 | **54 ± 1** |
-| InstantTrack, no contact reward | **0.873 ± 0.001** | 0 | **3.50 ± 0.08** | 7.7 ± 0.3 | **4.15 ± 0.02** | 0.738 ± 0.002 | 7.73 ± 0.08 | 0.057 ± 0.001 | 58 ± 3 |
-| **InstantTrack** | 0.867 ± 0.001 | 0 | 3.53 ± 0.04 | **7.5 ± 0.1** | 4.56 ± 0.02 | **0.812 ± 0.000** | **6.62 ± 0.04** | **0.052 ± 0.001** | 61 ± 5 |
+| InstantTrack v1.0, no contact reward | **0.873 ± 0.001** | 0 | 3.50 ± 0.08 | 7.7 ± 0.3 | 4.15 ± 0.02 | 0.738 ± 0.002 | 7.73 ± 0.08 | 0.057 ± 0.001 | 58 ± 3 |
+| InstantTrack v1.0 | 0.867 ± 0.001 | 0 | 3.53 ± 0.04 | 7.5 ± 0.1 | 4.56 ± 0.02 | 0.812 ± 0.000 | 6.62 ± 0.04 | **0.052 ± 0.001** | 61 ± 5 |
+| **InstantTrack v1.1** | 0.872 ± 0.003 | 0 | **3.20 ± 0.04** | **6.5 ± 0.0** | **4.12 ± 0.01** | **0.817 ± 0.003** | **6.59 ± 0.05** | 0.055 ± 0.001 | 61 ± 3 |
+
+The v1.1 row uses seeds 0–2 (`results/metrics_a1_075h.md`).
 
 After **1.5 h** of training (seed 0):
 
@@ -124,8 +203,15 @@ After **1.5 h** of training (seed 0):
 |---|---|---|---|---|---|---|---|---|
 | SuperMimic | 0.853 | 4.16 | 9.6 | 4.84 | 0.733 | 8.11 | 0.064 | 84 |
 | SuperMimic + EMA | 0.880 | 3.83 | 9.2 | 4.65 | 0.733 | 7.78 | 0.057 | 49 |
-| InstantTrack, no contact reward | **0.890** | **3.03** | **5.9** | **3.70** | 0.752 | 7.56 | 0.052 | **42** |
-| **InstantTrack** | 0.877 | 3.27 | 6.4 | 3.98 | **0.829** | **6.48** | **0.046** | 62 |
+| InstantTrack v1.0, no contact reward | **0.890** | 3.03 | 5.9 | **3.70** | 0.752 | 7.56 | 0.052 | **42** |
+| InstantTrack v1.0 | 0.877 | 3.27 | 6.4 | 3.98 | 0.829 | 6.48 | **0.046** | 62 |
+| **InstantTrack v1.1** | 0.881 | **2.95** | **5.8** | 3.76 | **0.837** | 6.49 | 0.050 | 55 |
+
+The v1.1 row was evaluated in a later session (`results/metrics_a1_150h.md`). In that session we
+re-evaluated the SuperMimic + EMA and v1.0 checkpoints as well, and got return 0.879 / 0.878 and root
+drift 50 / 59 cm, against 0.880 / 0.877 and 49 / 62 cm above. Re-running the evaluator on the same
+checkpoint therefore moves return by about ±0.001 and root drift by a few cm (MuJoCo Warp on the GPU
+is not bit-deterministic), so differences of that size between rows are not meaningful.
 
 Definitions:
 - *Body pos / ori*: RMS error of the 14 tracked bodies, with the reference re-anchored to the robot
@@ -135,8 +221,11 @@ Definitions:
 - *Foot slip*: horizontal foot speed while the simulated foot is in contact.
 - *Root drift*: global root position error.
 
-Full tables: [`results/metrics_075h.md`](results/metrics_075h.md) and
-[`results/metrics_150h.md`](results/metrics_150h.md).
+Full tables: [`results/metrics_075h.md`](results/metrics_075h.md),
+[`results/metrics_150h.md`](results/metrics_150h.md) (v1.0 and baselines),
+[`results/metrics_a1_075h.md`](results/metrics_a1_075h.md),
+[`results/metrics_a1_150h.md`](results/metrics_a1_150h.md) and
+[`results/metrics_r2a_075h.md`](results/metrics_r2a_075h.md) (v1.1 round).
 
 ### Ablation ladder
 
@@ -151,7 +240,8 @@ Each row adds one change to the row above. Times are "held ×3".
 | + compiled reward / obs / goal | 3 | 0.25 / 0.25 / 0.49 | 0.33 | 4.88 | 0.878 / 0.878 / 0.875 |
 | + world model 1024³ (was 2048³) | 3 | 0.30 / 0.20 / 0.30 | 0.27 | 6.35 | 0.878 / 0.880 / 0.881 |
 | + failure-focused resets | 3 | 0.20 / 0.20 / 0.25 | 0.22 | 6.29 | 0.875 / 0.874 / 0.874 |
-| + contact reward 0.25 = **InstantTrack** | 3 | 0.25 / 0.25 / 0.25 | 0.25 | 6.32 | 0.869 / 0.869 / 0.864 |
+| + contact reward 0.25 = **InstantTrack v1.0** | 3 | 0.25 / 0.25 / 0.25 | 0.25 | 6.32 | 0.869 / 0.869 / 0.864 |
+| + reference-residual policy = **InstantTrack v1.1** | 5 | 0.15 / 0.16 / 0.25 / 0.20 / 0.20 | 0.19 | 6.28 | 0.873 / 0.873 / 0.871 / 0.874 / 0.873 |
 
 For the first row the SuperMimic run is 2 h long, so its best return is taken over the full run.
 
@@ -182,9 +272,21 @@ configuration (the "on top of" column), so read them as directions, not final ve
 | WM window 4 | + compile_more | 1 | 0.25 | 5.45 |
 | Contact-mode world model (`--wm_contact 0.1`, 4 heads mixed by predicted foot contact) | + fail_reset | 3 | 0.30* / 0.20 / 0.20 | 6.12 |
 | Contact reward 0.5 | + fail_reset | 3 | 0.25 / 0.30 / 0.35 | 6.21 |
+| Wide-kernel root reward 0.5, std 1 m (`--root_reward 0.5`) | v1.0 | 1 | 0.28 | 6.30 |
+| Wide-kernel root reward 1.0, std 1 m | v1.0 | 1 | 0.35 | 6.28 |
+| Wide-kernel root reward 0.5, std 0.5 m (`--root_reward_std 0.5`) | v1.0 | 1 | 0.25 | 6.35 |
+| Reference residual β = 0.5 (v1.1 uses 1.0; same seed: 0.15 h) | v1.0 | 1 | 0.17 | 6.20 |
+| WM ensemble, 4 heads, disagreement penalty 100 (`--wm_ens 4 --wm_ens_pen 100`) | v1.1 | 1 | 0.25 | 6.12 |
+| WM ensemble, 4 heads, disagreement penalty 300 | v1.1 | 1 | 0.35 | 6.09 |
+| Mixture-of-experts policy, 2 decoders (`--pi_experts 2`) | v1.1 | 1 | 0.20 | 5.18 |
 
 \* This run followed a machine reboot that cleared the torch.compile cache. Cold compilation cost
 about 0.05 h of it.
+
+The v1.1-round variants were compared with the same seed of the configuration they modify (v1.0
+seed 0: 0.25 h; v1.1 seed 0: 0.15 h). Root drift at 0.75 h for the three root-reward runs was 56,
+57 and 60 cm, against 53 cm for v1.0 seed 0 evaluated in the same session
+([`results/metrics_r2a_075h.md`](results/metrics_r2a_075h.md)).
 
 Contact reward 0.5 reaches the highest contact agreement (0.87–0.88) and the lowest slip (6.3 cm/s),
 but it trades away more pose accuracy and root drift. Per-run logs for everything above are in
@@ -201,19 +303,25 @@ but it trades away more pose accuracy and root drift. Per-run logs for everythin
   1.50 h on an RTX 5090 with our own, stricter "0 failures, held ×3" criterion. Treat the speed-up as
   InstantTrack **vs our SuperMimic on the same machine**, not vs the paper's numbers.
 - **EMA does most of the early work.** A Polyak-averaged policy alone takes SuperMimic from 1.50 h to
-  0.55 h. That is why SuperMimic + EMA is the baseline we quote the 2.2× against, and it is a change
-  any SuperMimic implementation can adopt.
-- **Seeds and resolution.** 3 seeds per method; plain SuperMimic has 1 seed. Checkpoints are 3
+  0.55 h. That is why SuperMimic + EMA is the baseline we quote the 2.8× against, and it is a change
+  any SuperMimic implementation can adopt. The same holds for v1.1's reference-residual policy: it is
+  not specific to InstantTrack and could be added to SuperMimic as well; we have not measured that.
+- **How v1.1 was chosen.** v1.1 is the best of eight variants tried after v1.0 (see
+  [What did not help](#what-did-not-help)); it was selected on seed 0 and then confirmed on four more
+  seeds. Its accuracy at 0.75 h is measured on 3 of the 5 seeds and at 1.5 h on one run.
+- **Seeds and resolution.** 3 seeds per method (v1.1: 5); plain SuperMimic has 1 seed. Checkpoints are 3
   minutes (0.05 h) apart, so times are quantized to 0.05 h. Runs on one GPU are not bit-reproducible.
   Re-running the same seed moved one configuration from 0.30 h to 0.34 h.
 - **Training time.** Time is training wall-clock on a GPU used by nothing else. It includes
   torch.compile warm-up, about 15 s with a warm cache and about 3 min cold, and checkpoint writing.
   It excludes the offline evaluation.
 - **Where InstantTrack is worse.**
-  - With the contact reward, normalized return at 1.5 h is 0.877 vs SuperMimic + EMA's 0.880.
-  - Global root drift is larger (61–62 cm vs 49–54 cm). Feet that stick to the ground do not follow
-    the reference where the reference itself slides (10.2 cm/s of slip from retargeting).
-  - Without the contact reward, InstantTrack beats SuperMimic + EMA on every metric we measure.
+  - Global root drift is larger: 55–64 cm for v1.1 against 49–54 cm for SuperMimic + EMA. Feet that
+    stick to the ground do not follow the reference where the reference itself slides (10.2 cm/s of
+    slip from retargeting). An imagination-only root reward did not fix this.
+  - v1.0 reached a normalized return of 0.877 at 1.5 h, against 0.880 for SuperMimic + EMA. v1.1
+    reaches 0.881, which is within evaluation noise of SuperMimic + EMA, not clearly above it.
+  - Without the contact reward, InstantTrack v1.0 beats SuperMimic + EMA on every metric we measure.
 - **Scope.** Only the Unitree G1 in simulation, on LAFAN1 (40 clips). Evaluation has no domain
   randomization and no pushes. There is no sim-to-real experiment and no larger motion set.
 
@@ -248,8 +356,9 @@ Presets are defined in [`scripts/presets.sh`](scripts/presets.sh):
 |---|---|---|
 | `supermimic` | none | SuperMimic baseline, paper hyperparameters |
 | `supermimic_ema` | `--pi_ema 0.995` | fair baseline |
-| `instanttrack_track` | all InstantTrack changes except the contact reward | best normalized return and pose accuracy |
-| `instanttrack` | `--pi_ema 0.995 --no_sync --fused_adam --fused_rot --compile_more --lr 4e-4 --wm_batches 5 --wm_hidden 1024,1024,1024 --fail_reset 0.3 --contact_reward 0.25` | **main configuration** |
+| `instanttrack_track` | all v1.0 changes except the contact reward | best normalized return (v1.0) |
+| `instanttrack_v1.0` | `--pi_ema 0.995 --no_sync --fused_adam --fused_rot --compile_more --lr 4e-4 --wm_batches 5 --wm_hidden 1024,1024,1024 --fail_reset 0.3 --contact_reward 0.25` | v1.0 main configuration |
+| `instanttrack` | `instanttrack_v1.0` + `--ref_residual 1.0` | **main configuration (v1.1)** |
 
 ```bash
 # train InstantTrack for 0.75 h (seed 0), then evaluate all its checkpoints
@@ -266,7 +375,7 @@ and then `tools/eval_batch.py`. Train directly with, for example:
 ```bash
 uv run python -m instanttrack.train --log_dir logs/my_run --seed 0 --max_hours 0.75 \
   --pi_ema 0.995 --no_sync --fused_adam --fused_rot --compile_more --lr 4e-4 --wm_batches 5 \
-  --wm_hidden 1024,1024,1024 --fail_reset 0.3 --contact_reward 0.25
+  --wm_hidden 1024,1024,1024 --fail_reset 0.3 --contact_reward 0.25 --ref_residual 1.0
 ```
 
 Each run writes the following to `logs/<run>/`:
@@ -326,7 +435,7 @@ our runs, copied from `logs/`. To report your own runs, copy them there or pass 
 | path | contents |
 |---|---|
 | `src/instanttrack/train.py` | training loop: collect → world-model fit → BPTT policy + critic; all InstantTrack flags |
-| `src/instanttrack/networks.py` | world model (optional contact-mode heads), policy (goal encoder + decoder), critic, running normalizers |
+| `src/instanttrack/networks.py` | world model (optional contact-mode or ensemble heads), policy (goal encoder + decoder, optional reference residual and experts), critic, running normalizers |
 | `src/instanttrack/env.py` | batched mjlab tracking simulator, return-based and failure-focused reset sampling |
 | `src/instanttrack/mdp.py` | observation, BeyondMimic-style reward (+ contact term), termination |
 | `src/instanttrack/kinematics.py`, `rotations.py` | differentiable FK; fused `mm3` / `mv3` rotations |
@@ -336,6 +445,7 @@ our runs, copied from `logs/`. To report your own runs, copy them there or pass 
 | `scripts/` | presets, train + evaluate, reproduction of the main table |
 | `results/` | report tables, figures, and per-run logs (`results/runs/`) |
 | `experiments/all_runs.txt` | the command lines of the experiment queue |
+| `CHANGELOG.md` | release history |
 
 ## Attribution and licenses
 
@@ -380,10 +490,11 @@ particular SuperMimic, InstantMimic, mjlab and LAFAN1:
 
 ```bibtex
 @misc{instanttrack2026,
-  title  = {InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in 15 Minutes on One GPU},
-  author = {Huy-Quang-Dao},
-  year   = {2026},
-  url    = {https://github.com/Huy-Quang-Dao/instantTrack}
+  title   = {InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in Minutes on One GPU},
+  author  = {Huy-Quang-Dao},
+  year    = {2026},
+  version = {1.1.0},
+  url     = {https://github.com/Huy-Quang-Dao/instantTrack}
 }
 @article{liao2026supermimic,
   title   = {SuperMimic: Scaling Humanoid Whole-Body Control with One Differentiable World Model},
@@ -426,4 +537,4 @@ particular SuperMimic, InstantMimic, mjlab and LAFAN1:
 ## License
 
 The code is released under the [MIT License](LICENSE). Copyright (c) 2026 Huy-Quang-Dao.
-Data-derived files (GIF, videos, checkpoints) are excluded; see [Attribution and licenses](#attribution-and-licenses).
+Data-derived files (GIFs, videos, checkpoints) are excluded; see [Attribution and licenses](#attribution-and-licenses).

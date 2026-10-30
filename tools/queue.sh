@@ -8,7 +8,7 @@ QUEUE=${1:-experiments/all_runs.txt}
 cd "$(dirname "$0")/.."
 while true; do
   while tmux ls 2>/dev/null | grep -qE '^e[0-9]+_' || pgrep -f 'python3 -m instanttrack.train' >/dev/null; do sleep 30; done
-  line=$(grep -vE '^\s*(#|$)' "$QUEUE" | while read -r name rest; do [ -f "logs/$name/eval.csv" ] || { echo "$name $rest"; break; }; done)
+  line=$(grep -vE '^\s*(#|$)' "$QUEUE" | while read -r name rest; do [ -f "logs/${name#RUN:}/eval.csv" ] || { echo "$name $rest"; break; }; done)
   [ -z "$line" ] && { echo "queue empty"; break; }
   name=${line%% *}; rest=${line#* }; [ "$rest" = "$name" ] && rest=""
   if [[ "$name" == RUN:* ]]; then  # "RUN:<tag> <shell command>": run once, then mark logs/<tag>/eval.csv done

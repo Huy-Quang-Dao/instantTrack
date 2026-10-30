@@ -43,7 +43,7 @@ def load_policy(ck):
     a_ = ck["args"]
     widths = lambda key: tuple(int(x) for x in a_.get(key, "2048,1024,512,256").split(","))  # noqa: E731
     pi = Policy(mdp.obs_dim, motion.goal_dim(a_["goal_frames"]), robot.num_joints, hist=a_["hist"],
-                enc_hidden=widths("enc_hidden"), dec_hidden=widths("dec_hidden")).to(dev)  # fmt: skip
+                enc_hidden=widths("enc_hidden"), dec_hidden=widths("dec_hidden"), ref_residual=a_.get("ref_residual", 0.0), experts=a_.get("pi_experts", 1)).to(dev)  # fmt: skip
     pi.load_state_dict(ck["pi"])
     return pi.eval()
 

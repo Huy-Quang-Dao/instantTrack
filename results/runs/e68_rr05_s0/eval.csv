@@ -1,0 +1,24 @@
+iteration,train_wall_h,saved_at,eval_at,norm_return,norm_return_framew,n_failed,failed
+972,0.0500,2026-10-29 19:45:47,2026-10-29 20:30:38,0.0776,0.0736,40,dance1_subject1|dance1_subject2|dance1_subject3|dance2_subject1|dance2_subject2|dance2_subject3|dance2_subject4|dance2_subject5|fallAndGetUp1_subject1|fallAndGetUp1_subject4|fallAndGetUp1_subject5|fallAndGetUp2_subject2|fallAndGetUp2_subject3|fallAndGetUp3_subject1|fight1_subject2|fight1_subject3|fight1_subject5|fightAndSports1_subject1|fightAndSports1_subject4|jumps1_subject1|jumps1_subject2|jumps1_subject5|run1_subject2|run1_subject5|run2_subject1|run2_subject4|sprint1_subject2|sprint1_subject4|walk1_subject1|walk1_subject2|walk1_subject5|walk2_subject1|walk2_subject3|walk2_subject4|walk3_subject1|walk3_subject2|walk3_subject3|walk3_subject4|walk3_subject5|walk4_subject1
+2000,0.0963,2026-10-29 19:48:33,2026-10-29 20:30:38,0.6031,0.6328,12,dance1_subject1|dance2_subject4|fallAndGetUp1_subject1|fallAndGetUp1_subject4|fallAndGetUp1_subject5|fallAndGetUp2_subject2|fallAndGetUp2_subject3|fallAndGetUp3_subject1|fight1_subject3|jumps1_subject2|walk3_subject1|walk3_subject4
+2079,0.1000,2026-10-29 19:48:47,2026-10-29 20:30:38,0.6137,0.6432,12,dance1_subject1|dance2_subject4|fallAndGetUp1_subject1|fallAndGetUp1_subject4|fallAndGetUp1_subject5|fallAndGetUp2_subject2|fallAndGetUp2_subject3|fallAndGetUp3_subject1|fight1_subject3|jumps1_subject2|walk3_subject1|walk3_subject4
+3187,0.1500,2026-10-29 19:51:47,2026-10-29 20:30:38,0.7772,0.7850,1,dance1_subject1
+4000,0.1876,2026-10-29 19:54:02,2026-10-29 20:30:38,0.7830,0.7926,1,fallAndGetUp2_subject2
+4275,0.2000,2026-10-29 19:54:47,2026-10-29 20:30:38,0.7917,0.8005,1,fallAndGetUp2_subject2
+5389,0.2500,2026-10-29 19:57:47,2026-10-29 20:30:38,0.8004,0.8074,3,fallAndGetUp1_subject5|fallAndGetUp2_subject3|walk3_subject4
+6000,0.2769,2026-10-29 19:59:23,2026-10-29 20:30:38,0.8316,0.8339,0,
+6530,0.3000,2026-10-29 20:00:47,2026-10-29 20:30:38,0.8332,0.8358,0,
+7671,0.3500,2026-10-29 20:03:47,2026-10-29 20:30:38,0.8414,0.8428,0,
+8000,0.3644,2026-10-29 20:04:39,2026-10-29 20:30:38,0.8482,0.8499,0,
+8816,0.4000,2026-10-29 20:06:47,2026-10-29 20:30:38,0.8483,0.8507,0,
+9959,0.4500,2026-10-29 20:09:47,2026-10-29 20:30:38,0.8548,0.8565,0,
+10000,0.4519,2026-10-29 20:09:53,2026-10-29 20:30:38,0.8538,0.8558,0,
+11104,0.5000,2026-10-29 20:12:47,2026-10-29 20:30:38,0.8601,0.8614,0,
+12000,0.5392,2026-10-29 20:15:08,2026-10-29 20:30:38,0.8614,0.8620,0,
+12244,0.5500,2026-10-29 20:15:47,2026-10-29 20:32:46,0.8611,0.8622,0,
+13388,0.6000,2026-10-29 20:18:47,2026-10-29 20:32:46,0.8599,0.8612,0,
+14000,0.6267,2026-10-29 20:20:23,2026-10-29 20:32:46,0.8656,0.8661,0,
+14532,0.6500,2026-10-29 20:21:47,2026-10-29 20:32:46,0.8623,0.8629,0,
+15676,0.7000,2026-10-29 20:24:47,2026-10-29 20:32:46,0.8707,0.8718,0,
+16000,0.7141,2026-10-29 20:25:38,2026-10-29 20:32:46,0.8673,0.8674,0,
+16821,0.7500,2026-10-29 20:27:47,2026-10-29 20:32:46,0.8693,0.8704,0,

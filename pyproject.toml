@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "instanttrack"
-version = "1.0.0"
+version = "1.1.0"
 description = "InstantTrack: SuperMimic-style world-model tracking with an InstantMimic-style GPU-native training loop, on mjlab."
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]

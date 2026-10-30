@@ -61,6 +61,15 @@ parser.add_argument("--wm_contact", type=float, default=0.0,
                     help="contact-mode world model (per-mode increment heads mixed by predicted foot contact); weight of the contact BCE loss")  # fmt: skip
 parser.add_argument("--contact_reward", type=float, default=0.0,
                     help="weight of the contact-matching / anti-slip reward term in imagination (evaluation reward unchanged)")
+parser.add_argument("--root_reward", type=float, default=0.0,
+                    help="weight of a wide-kernel global root position term in imagination (evaluation reward unchanged)")
+parser.add_argument("--ref_residual", type=float, default=0.0,
+                    help="policy outputs a correction on top of beta x the next reference joint pose (0 = paper: offset from the default pose)")
+parser.add_argument("--pi_experts", type=int, default=1, help="policy decoders mixed by a gate on the motion latent (1 = paper)")
+parser.add_argument("--wm_ens", type=int, default=1, help="world-model heads on a shared trunk (1 = paper)")
+parser.add_argument("--wm_ens_pen", type=float, default=0.0,
+                    help="imagination reward penalty on the heads' disagreement (normalized increment variance)")
+parser.add_argument("--root_reward_std", type=float, default=1.0, help="kernel width (m) of --root_reward")
 parser.add_argument("--wm_only_iters", type=int, default=500, help="world-model-only iterations at the start")
 parser.add_argument("--lr_decay_iters", type=int, default=250_000)
 parser.add_argument("--ckpt_every", type=int, default=2000)
@@ -115,8 +124,11 @@ widths = lambda s: tuple(int(x) for x in s.split(","))  # noqa: E731
 networks.RunningNorm.no_sync = args.no_sync
 rotations.ELEMENTWISE = args.fused_rot
 wm = WorldModel(J, layout.dim, use_prev_action=robot.has_action_delay, hidden=widths(args.wm_hidden),
-                contact_modes=args.wm_contact > 0).to(dev)  # fmt: skip
-pi = Policy(mdp.obs_dim, GOAL_DIM, J, hist=Hh, enc_hidden=widths(args.enc_hidden), dec_hidden=widths(args.dec_hidden)).to(dev)
+                contact_modes=args.wm_contact > 0, ens_heads=args.wm_ens).to(dev)  # fmt: skip
+pi = Policy(mdp.obs_dim, GOAL_DIM, J, hist=Hh, enc_hidden=widths(args.enc_hidden), dec_hidden=widths(args.dec_hidden),
+            ref_residual=args.ref_residual, experts=args.pi_experts).to(dev)  # fmt: skip
+if args.ref_residual > 0:
+    pi.set_reference_action(mdp.default_q, torch.tensor(robot.action_scale_list(), device=dev))
 critic = Critic(CRITIC_IN).to(dev)
 fused = {"fused": True} if args.fused_adam else {}
 opt_wm = torch.optim.Adam(wm.parameters(), lr=args.lr, **fused)
@@ -139,13 +151,26 @@ ERR_FLOOR = torch.cat((torch.full((3,), 3e-3), torch.full((3,), 5e-3), torch.ful
 
 def _wm_rollout(s, a, a_prev, xi):
     S = unflatten_state(s[:, 0])
-    preds, logits = [], []
+    preds, logits, heads0 = [], [], None
     for j in range(args.wm_window):
-        S, c = wm.step_c(S, a[:, j], a_prev[:, j], normalize_xi(xi[:, j]))
+        S, c, hd = wm.step_full(S, a[:, j], a_prev[:, j], normalize_xi(xi[:, j]))
         preds.append(S)
         logits.append(c)
+        if j == 0:
+            heads0 = hd
     S_hat = tuple(torch.stack([P[i] for P in preds], 1) for i in range(6))  # (B, k, ...)
-    return S_hat, torch.stack(logits, 1) if wm.contact_modes else None
+    return S_hat, torch.stack(logits, 1) if wm.contact_modes else None, heads0
+
+
+def _ens_loss(heads0, s, s1, mask):
+    """One-step loss of each head from the logged state, on a random half of the batch per head
+    (bootstrap), in normalized increment units; the multi-step loss trains the heads' mean."""
+    S0, S1 = unflatten_state(s[:, 0]), unflatten_state(s1[:, 0])
+    y = (wm.targets(S0, S1) - wm.out_norm.mean) / wm.out_norm.std()
+    e = ((heads0 - y.unsqueeze(1)) ** 2).mean(-1)  # (B, K)
+    boot = (torch.rand_like(e) < 0.5).float()
+    w = boot * mask[:, :1]
+    return (e * w).sum() / w.sum().clamp(min=1)
 
 
 FEET = [robot.tracked_bodies.index(b) for b in ("left_ankle_roll_link", "right_ankle_roll_link")] if robot.name == "g1" else []
@@ -186,15 +211,19 @@ def _wm_err(S_hat, logits, s1, mask):
     return (loss * mask).sum() / s1.shape[0], e[:, -1]
 
 
+ENS_U = [None]  # last imagined mean head disagreement (logged with --wm_ens > 1)
+
+
 def _imag_step(S, o_hist, a_prev, f, xi, xi_n, g):
     a = pi(o_hist, g)
     if args.imag_action_noise > 0:
         a = a + args.imag_action_noise * torch.randn_like(a)  # reparameterized: the gradient reaches the mean action
-    S1 = wm.step(S, a, a_prev, xi_n)
+    S1, _, heads = wm.step_full(S, a, a_prev, xi_n)
     f1 = f + 1
     o1 = mdp.add_noise(mdp.obs(S1, a, xi, f1))
     o_hist = torch.cat((o_hist[:, 1:], o1.unsqueeze(1)), 1)
-    return S1, a, o_hist, f1, motion.goal(f1, K)
+    u = wm.disagreement(heads) if heads is not None else torch.zeros_like(S1[0][..., 0])
+    return S1, a, o_hist, f1, motion.goal(f1, K), u
 
 
 def _anchor(P, Q, R1, m):
@@ -238,7 +267,8 @@ def _imag_step_sensed(S, o_hist, a_prev, f, xi, xi_n, g, st):
 
 
 def _reward_term(S, f, a, a_prev):
-    return mdp.reward(S, f, a, a_prev, w_contact=args.contact_reward), mdp.soft_termination(S, f)
+    r = mdp.reward(S, f, a, a_prev, w_contact=args.contact_reward, w_root=args.root_reward, root_std=args.root_reward_std)
+    return r, mdp.soft_termination(S, f)
 
 
 def _gae_targets(V, rews, dones):
@@ -266,6 +296,7 @@ def _critic_input(S, f, xi_n, g):
 compile_ = (lambda fn: torch.compile(fn, mode="reduce-overhead")) if args.cudagraphs else torch.compile
 wm_rollout = compile_(_wm_rollout)
 wm_err = compile_(_wm_err)
+ens_loss = compile_(_ens_loss)
 imag_step = compile_(_imag_step)
 imag_step_sensed = compile_(_imag_step_sensed)
 imag_step_anchored = compile_(_imag_step_anchored)
@@ -290,8 +321,10 @@ def set_requires_grad(m: nn.Module, flag: bool):
 # ------------------------------------------------------------------------------------------------
 def wm_update():
     w = buffer.sample_windows(args.wm_batch, args.wm_window)
-    S_hat, logits = wm_rollout(w["s"], w["a"], w["a_prev"], w["xi"])
+    S_hat, logits, heads0 = wm_rollout(w["s"], w["a"], w["a_prev"], w["xi"])
     loss, e_last = wm_err(S_hat, logits, w["s1"], w["mask"])
+    if heads0 is not None:
+        loss = loss + ens_loss(heads0, w["s"], w["s1"], w["mask"])
     opt_wm.zero_grad(set_to_none=True)
     loss.backward()
     nn.utils.clip_grad_norm_(wm.parameters(), 1.0)
@@ -346,7 +379,7 @@ def policy_update():
     g0 = motion.goal(f, K)
     g = g0
     S0 = S
-    Ss, As, Aps, Fs, Gs, Reps = [], [], [], [], [], []
+    Ss, As, Aps, Fs, Gs, Reps, Us = [], [], [], [], [], [], []
     for t in range(HZ):
         Aps.append(a_prev)
         if pipe.stateful:
@@ -356,7 +389,8 @@ def policy_update():
             S, a_prev, o_hist, f, g = imag_step_anchored(S, o_hist, a_prev, f, xi, xi_n, g, sel(Wr), win["a"][:, t], win["a_prev"][:, t],
                                                           sel(Wr1), win["mask"][:, t])  # fmt: skip
         else:
-            S, a_prev, o_hist, f, g = imag_step(S, o_hist, a_prev, f, xi, xi_n, g)
+            S, a_prev, o_hist, f, g, u = imag_step(S, o_hist, a_prev, f, xi, xi_n, g)
+            Us.append(u)
         Ss.append(S), As.append(a_prev), Fs.append(f), Gs.append(g)
         if args.demo_replay:
             # DiffMimic-style demonstration replay: a failed imagined state is scored (above) and then
@@ -376,6 +410,11 @@ def policy_update():
     f_all = flat(Fs)
     r, d = reward_term(S_all, f_all, flat(As), flat(Aps))
     r, d = r.view(HZ, B), d.view(HZ, B)
+    if Us and wm.ens_heads > 1:
+        U = torch.stack(Us)
+        ENS_U[0] = U.detach().mean()
+        if args.wm_ens_pen > 0:
+            r = r - args.wm_ens_pen * U * CONTROL_DT
     if args.demo_replay:
         # survival weight restarts at 1 after a replay (the replayed state is a fresh episode start)
         c, cs = torch.ones(B, device=dev), []
@@ -558,7 +597,8 @@ for it in range(start_it, args.iterations):
         log_f.write(",".join(f"{x:.6g}" if isinstance(x, float) else str(x) for x in row) + "\n")
         log_f.flush()
         print(f"it {it + 1} | {wall_h:.3f} h | wm {row[3]:.4f} e8 {row[4]:.4f} | pi {row[5]:.3f} v {row[6]:.4f} imag_r {row[7]:.3f} surv {row[9]:.3f} "
-              f"| sim_r {row[10]:.3f} ep_len {row[11]:.1f} ep_ret {row[12]:.3f} term {term_frac:.2f} | {ips:.2f} it/s", flush=True)  # fmt: skip
+              f"| sim_r {row[10]:.3f} ep_len {row[11]:.1f} ep_ret {row[12]:.3f} term {term_frac:.2f} | {ips:.2f} it/s"
+              + (f" | ens_u {float(ENS_U[0]):.4g}" if ENS_U[0] is not None else ""), flush=True)  # fmt: skip
         stats = {k: [] for k in stats}
         agg = {k: [] for k in agg}
     wall = time.time() - t_start
