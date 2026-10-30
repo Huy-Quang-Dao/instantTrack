@@ -4,6 +4,8 @@
 .hkey i{width:10px;height:10px;border-radius:50%;display:inline-block}
 .hkey .k-sm{background:var(--blue-50)}
 .hkey .k-it{background:var(--blue)}
+.hkey .k-v10{background:var(--grey4)}
+.hkey:has(.k-v10){grid-template-columns:1fr 1fr 1fr}
 @media (min-width:735px){.hkey{font-size:17px;margin:-24px 0 20px}}
 .wtile{min-height:0}
 @media (min-width:735px){.wtile{min-height:340px}}
