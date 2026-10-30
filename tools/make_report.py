@@ -1,7 +1,7 @@
 """Build the README/report tables and figures from the per-run summaries in ``results/runs/<run>/``
 (``eval.csv`` from tools/eval_batch.py, ``train_log.csv`` from training).
 
-    uv run python tools/make_report.py              # writes results/report.md and results/fig_*.png
+    uv run python tools/make_report.py              # writes results/report.md, results/time_to_target.png and results/learning_curves.png
 """
 
 import argparse
@@ -175,7 +175,7 @@ def figures(S):
     style(ax)
     ax.grid(False, axis="y")
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT, "fig_time_to_target.png"), dpi=160)
+    fig.savefig(os.path.join(OUT, "time_to_target.png"), dpi=160)
 
     # learning curves vs wall-clock: mean line, min-max band over seeds (0.75 h: the length of the 3-seed runs)
     fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
@@ -201,7 +201,7 @@ def figures(S):
         style(ax)
     axes[0].legend(fontsize=8, frameon=False, loc="lower right")
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT, "fig_curves.png"), dpi=160)
+    fig.savefig(os.path.join(OUT, "learning_curves.png"), dpi=160)
     print("wrote", OUT + "/report.md and figures")
 
 

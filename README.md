@@ -153,7 +153,7 @@ evaluation time is not counted as training time.
 checkpoints**. We use the 0.82 threshold of the SuperMimic paper and add the 0-failure and
 held-for-3 conditions, so a single lucky checkpoint does not count.
 
-![Time to target](results/fig_time_to_target.png)
+![Time to target](results/time_to_target.png)
 
 | method | seeds | held at (h) | mean (h) | iteration at held | it/s | vs SuperMimic + EMA |
 |---|---|---|---|---|---|---|
@@ -170,7 +170,7 @@ the first checkpoint that meets the target is at 0.15–0.16 h for all five.
 
 ### Equal training time
 
-![Learning curves](results/fig_curves.png)
+![Learning curves](results/learning_curves.png)
 
 Mean over seeds of normalized return / failed clips:
 

@@ -6,6 +6,12 @@ All notable changes to InstantTrack are documented here. The format follows
 with the protocol in the README ("Time to target"); every number below can be regenerated from
 `results/runs/` with `tools/make_report.py`.
 
+## [Unreleased]
+
+### Changed
+- Result figures renamed to `results/time_to_target.png` and `results/learning_curves.png`, so
+  that cached v1.0 images are not shown in place of the v1.1 ones. Content is unchanged.
+
 ## [1.1.0] - 2026-10-30
 
 ### Results
@@ -85,5 +91,6 @@ First public release.
   1.50 h for SuperMimic on the same machine.
 - Logs of all 60+ runs, report generator, presets, reproduction script, project page.
 
+[Unreleased]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Huy-Quang-Dao/instantTrack/releases/tag/v1.0.0
