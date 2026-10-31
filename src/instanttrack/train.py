@@ -54,6 +54,13 @@ parser.add_argument("--fused_rot", action="store_true", help="elementwise 3x3 pr
 parser.add_argument("--compile_more", action="store_true",
                     help="also compile the per-sim-step MDP heads (reward, termination, obs, goal), the WM normalizer inputs, and the critic bootstrap")  # fmt: skip
 parser.add_argument("--cudagraphs", action="store_true", help="torch.compile mode='reduce-overhead' (CUDA graphs) for the update loop")
+parser.add_argument("--muon", action="store_true",
+                    help="Muon for the hidden weight matrices of the world model and policy (same lr schedule, match_rms_adamw scaling), Adam for the rest")
+parser.add_argument("--muon_on", type=str, default="pi,wm", help="which networks use Muon with --muon: any of pi, wm")
+parser.add_argument("--wm_specnorm", action="store_true",
+                    help="spectral normalization of the world model's hidden layers (smoother model, lower BPTT gradient variance; Zhang et al., NeurIPS 2023)")
+parser.add_argument("--cuda_graph", action="store_true",
+                    help="capture one world-model update and one policy + critic update (forward, backward, optimizer) as CUDA graphs and replay them (needs --no_sync --fused_adam)")
 parser.add_argument("--pi_ema", type=float, default=0.0,
                     help="Polyak average of the policy weights (decay per update); checkpoints store the average as 'pi'")  # fmt: skip
 parser.add_argument("--warmup_steps", type=int, default=64, help="sim steps before any update")
@@ -66,6 +73,9 @@ parser.add_argument("--root_reward", type=float, default=0.0,
 parser.add_argument("--ref_residual", type=float, default=0.0,
                     help="policy outputs a correction on top of beta x the next reference joint pose (0 = paper: offset from the default pose)")
 parser.add_argument("--pi_experts", type=int, default=1, help="policy decoders mixed by a gate on the motion latent (1 = paper)")
+parser.add_argument("--pi_simba", type=str, default="", help="policy encoder/decoder as SimBa residual stacks, '<width>x<blocks>' (e.g. 512x2)")
+parser.add_argument("--batch_goal_enc", action="store_true",
+                    help="encode the H goals of each imagined rollout in one batch before the rollout (same result, fewer, larger kernels)")
 parser.add_argument("--wm_ens", type=int, default=1, help="world-model heads on a shared trunk (1 = paper)")
 parser.add_argument("--wm_ens_pen", type=float, default=0.0,
                     help="imagination reward penalty on the heads' disagreement (normalized increment variance)")
@@ -126,16 +136,66 @@ rotations.ELEMENTWISE = args.fused_rot
 wm = WorldModel(J, layout.dim, use_prev_action=robot.has_action_delay, hidden=widths(args.wm_hidden),
                 contact_modes=args.wm_contact > 0, ens_heads=args.wm_ens).to(dev)  # fmt: skip
 pi = Policy(mdp.obs_dim, GOAL_DIM, J, hist=Hh, enc_hidden=widths(args.enc_hidden), dec_hidden=widths(args.dec_hidden),
-            ref_residual=args.ref_residual, experts=args.pi_experts).to(dev)  # fmt: skip
+            ref_residual=args.ref_residual, experts=args.pi_experts, simba_arch=args.pi_simba).to(dev)  # fmt: skip
 if args.ref_residual > 0:
     pi.set_reference_action(mdp.default_q, torch.tensor(robot.action_scale_list(), device=dev))
 critic = Critic(CRITIC_IN).to(dev)
+if args.wm_specnorm:  # hidden Linear layers only (the zero-initialized output layer stays free)
+    lins = [m for m in wm.net if isinstance(m, nn.Linear)]
+    for m in lins[1:-1]:
+        nn.utils.parametrizations.spectral_norm(m)
 fused = {"fused": True} if args.fused_adam else {}
-opt_wm = torch.optim.Adam(wm.parameters(), lr=args.lr, **fused)
-opt_pi = torch.optim.Adam(pi.parameters(), lr=args.lr, betas=(args.pi_beta1, 0.95), **fused)
+if args.cuda_graph:
+    assert args.no_sync and args.fused_adam and not (args.demo_replay or args.anchored or args.cudagraphs), "--cuda_graph needs --no_sync --fused_adam"
+    # the step counter lives on the GPU and lr is a tensor, so the captured optimizer steps follow the schedule
+    fused = {"fused": True, "capturable": True, "lr": torch.tensor(args.lr, device=dev)}
+LR = fused.pop("lr", args.lr)
+
+
+class Combined:
+    """Muon (Jordan et al. 2024; Liu et al. 2025) for the hidden weight matrices of an MLP stack and Adam for
+    everything else (input / output layers, biases, norms), behind one optimizer-like interface."""
+
+    def __init__(self, opts):
+        self.opts = opts
+        self.param_groups = [g for o in opts for g in o.param_groups]
+
+    def zero_grad(self, set_to_none=True):
+        for o in self.opts:
+            o.zero_grad(set_to_none=set_to_none)
+
+    def step(self):
+        for o in self.opts:
+            o.step()
+
+    def state_dict(self):
+        return {str(i): o.state_dict() for i, o in enumerate(self.opts)}
+
+    def load_state_dict(self, sd):
+        for i, o in enumerate(self.opts):
+            o.load_state_dict(sd[str(i)])
+
+
+def make_opt(model: nn.Module, betas=(0.9, 0.999), name: str = ""):
+    lr = LR.clone() if torch.is_tensor(LR) else LR
+    if not args.muon or name not in args.muon_on.split(","):
+        return torch.optim.Adam(model.parameters(), lr=lr, betas=betas, **fused)
+    hidden = []
+    for m in model.modules():  # Linear layers of each MLP except its first and last
+        if isinstance(m, nn.Sequential):
+            lins = [x for x in m if isinstance(x, nn.Linear)]
+            hidden += [x.weight for x in lins[1:-1]]
+    ids = {id(p) for p in hidden}
+    rest = [p for p in model.parameters() if id(p) not in ids]
+    muon = torch.optim.Muon(hidden, lr=args.lr, weight_decay=0.0, adjust_lr_fn="match_rms_adamw")
+    return Combined([muon, torch.optim.Adam(rest, lr=lr, betas=betas, **fused)])
+
+
+opt_wm = make_opt(wm, name="wm")
+opt_pi = make_opt(pi, betas=(args.pi_beta1, 0.95), name="pi")
 pi_avg = torch.optim.swa_utils.AveragedModel(pi, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(args.pi_ema),
                                              use_buffers=True) if args.pi_ema > 0 else None  # fmt: skip
-opt_v = torch.optim.Adam(critic.parameters(), lr=args.lr, **fused)
+opt_v = torch.optim.Adam(critic.parameters(), lr=LR.clone() if torch.is_tensor(LR) else LR, **fused)
 start_it, wall_offset, sim_steps = 0, 0.0, 0
 if args.resume:
     ck = torch.load(args.resume, map_location=dev)
@@ -214,8 +274,8 @@ def _wm_err(S_hat, logits, s1, mask):
 ENS_U = [None]  # last imagined mean head disagreement (logged with --wm_ens > 1)
 
 
-def _imag_step(S, o_hist, a_prev, f, xi, xi_n, g):
-    a = pi(o_hist, g)
+def _imag_step(S, o_hist, a_prev, f, xi, xi_n, g, z=None):
+    a = pi(o_hist, g, z)
     if args.imag_action_noise > 0:
         a = a + args.imag_action_noise * torch.randn_like(a)  # reparameterized: the gradient reaches the mean action
     S1, _, heads = wm.step_full(S, a, a_prev, xi_n)
@@ -319,6 +379,41 @@ def set_requires_grad(m: nn.Module, flag: bool):
 
 
 # ------------------------------------------------------------------------------------------------
+@torch.no_grad()
+def ema_update():
+    """The EMA step of ``AveragedModel.update_parameters`` without its host-side first-call check (capturable)."""
+    avg = [t for t in list(pi_avg.module.parameters()) + list(pi_avg.module.buffers()) if t.is_floating_point()]
+    live = [t for t in list(pi.parameters()) + list(pi.buffers()) if t.is_floating_point()]
+    torch._foreach_lerp_(avg, [t.detach() for t in live], 1 - args.pi_ema)
+    pi_avg.n_averaged += 1
+
+
+class Graphed:
+    """Run ``fn`` eagerly (on a side stream) for the first ``warmup`` calls, capture it as a CUDA graph on the
+    next call, then replay. Each call performs exactly one update; outputs are cloned out of the graph pool."""
+
+    def __init__(self, fn, warmup: int = 3):
+        self.fn, self.warmup, self.calls, self.graph, self.out = fn, warmup, 0, None, None
+
+    def __call__(self):
+        self.calls += 1
+        if self.calls <= self.warmup:
+            side = torch.cuda.Stream()
+            side.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(side):
+                out = self.fn()
+            torch.cuda.current_stream().wait_stream(side)
+            return out
+        if self.graph is None:
+            assert buffer.size == buffer.T, "capture after the replay buffer is full (static sampling bounds)"
+            torch.cuda.synchronize()
+            self.graph = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(self.graph):
+                self.out = self.fn()
+        self.graph.replay()
+        return tuple(x.clone() for x in self.out)
+
+
 def wm_update():
     w = buffer.sample_windows(args.wm_batch, args.wm_window)
     S_hat, logits, heads0 = wm_rollout(w["s"], w["a"], w["a_prev"], w["xi"])
@@ -358,7 +453,7 @@ PROFILE = bool(int(os.environ.get("SM_PROFILE", "0")))
 
 
 def policy_update():
-    if PROFILE:
+    if PROFILE and not args.cuda_graph:
         torch.cuda.synchronize(); tq0 = time.time()
     s, h, *win = sample_valid_starts(args.pi_batch)
     if args.anchored:
@@ -380,6 +475,12 @@ def policy_update():
     g = g0
     S0 = S
     Ss, As, Aps, Fs, Gs, Reps, Us = [], [], [], [], [], [], []
+    Z = None
+    if args.batch_goal_enc:
+        # the goal sequence of an imagined rollout depends only on the reference (frames f, f+1, ...), so the
+        # motion encoder runs once on all H goals: one large GEMM chain instead of H small ones (same gradient)
+        fH = f.unsqueeze(0) + torch.arange(HZ, device=dev).unsqueeze(-1)  # (H, B)
+        Z = pi.encode(motion.goal(fH.flatten(), K)).view(HZ, B, -1)
     for t in range(HZ):
         Aps.append(a_prev)
         if pipe.stateful:
@@ -389,7 +490,7 @@ def policy_update():
             S, a_prev, o_hist, f, g = imag_step_anchored(S, o_hist, a_prev, f, xi, xi_n, g, sel(Wr), win["a"][:, t], win["a_prev"][:, t],
                                                           sel(Wr1), win["mask"][:, t])  # fmt: skip
         else:
-            S, a_prev, o_hist, f, g, u = imag_step(S, o_hist, a_prev, f, xi, xi_n, g)
+            S, a_prev, o_hist, f, g, u = imag_step(S, o_hist, a_prev, f, xi, xi_n, g, Z[t] if Z is not None else None)
             Us.append(u)
         Ss.append(S), As.append(a_prev), Fs.append(f), Gs.append(g)
         if args.demo_replay:
@@ -424,7 +525,14 @@ def policy_update():
         c_t = torch.stack(cs)
         alive = torch.cat((c_t[1:], c.unsqueeze(0)), 0)
     else:
-        alive = torch.cumprod(1 - d, 0)  # c_{t+1}
+        if args.cuda_graph:  # cumprod's backward reads a scalar on the host (zero check): use a product loop
+            acc, cs = torch.ones_like(d[0]), []
+            for t in range(HZ):
+                acc = acc * (1 - d[t])
+                cs.append(acc)
+            alive = torch.stack(cs)
+        else:
+            alive = torch.cumprod(1 - d, 0)  # c_{t+1}
         c_t = torch.cat((torch.ones(1, B, device=dev), alive[:-1]), 0)
     disc = args.gamma ** torch.arange(HZ, device=dev, dtype=torch.float32).unsqueeze(-1)
     J = (disc * c_t * r).sum(0)
@@ -434,11 +542,11 @@ def policy_update():
     if not args.no_critic:
         J = J + (args.gamma**HZ) * c * critic((critic_input_c if args.compile_more else _critic_input)(S, f, xi_n, g))
     loss = -J.mean()
-    if PROFILE:
+    if PROFILE and not args.cuda_graph:
         torch.cuda.synchronize(); tq1 = time.time()
     opt_pi.zero_grad(set_to_none=True)
     loss.backward()
-    if PROFILE:
+    if PROFILE and not args.cuda_graph:
         torch.cuda.synchronize(); tq2 = time.time()
     gn = nn.utils.clip_grad_norm_(pi.parameters(), 1.0)
     if args.pi_clip_value > 0:
@@ -453,7 +561,10 @@ def policy_update():
     elif torch.isfinite(gn):
         opt_pi.step()
     if pi_avg is not None:
-        pi_avg.update_parameters(pi)
+        if args.cuda_graph and (torch.cuda.is_current_stream_capturing() or int(pi_avg.n_averaged) > 0):
+            ema_update()
+        else:
+            pi_avg.update_parameters(pi)
     set_requires_grad(wm, True)
     set_requires_grad(critic, True)
     # ---------------- critic: GAE(lambda) targets over the imagined transitions ----------------
@@ -480,7 +591,7 @@ def policy_update():
                 v_loss.backward()
                 nn.utils.clip_grad_norm_(critic.parameters(), 1.0)
                 opt_v.step()
-    if PROFILE:
+    if PROFILE and not args.cuda_graph:
         torch.cuda.synchronize()
         print(f"[prof] imagine fwd {1e3*(tq1-tq0):.0f} ms | bwd {1e3*(tq2-tq1):.0f} ms | critic {1e3*(time.time()-tq2):.0f} ms", flush=True)
     return loss.detach(), v_loss.detach(), (r_sum / HZ / 0.1).mean(), gn.detach(), c.mean().detach()
@@ -524,6 +635,8 @@ def collect(n_steps: int, stats: dict):
             stats["term"].append(out["term"].float().sum())
             stats["done"].append(out["done"].float().sum())
 
+wm_update_g = Graphed(wm_update) if args.cuda_graph else None
+policy_update_g = Graphed(policy_update) if args.cuda_graph else None
 stats = {"r": [], "ep_len": [], "ep_ret": [], "term": [], "done": []}
 collect(args.warmup_steps, stats)  # the replay buffer is not checkpointed, so a resumed run refills it too
 log_f = open(os.path.join(args.log_dir, "train_log.csv"), "a")
@@ -565,7 +678,10 @@ for it in range(start_it, args.iterations):
     lr = lr_at(it)
     for o in (opt_wm, opt_pi, opt_v):
         for gparam in o.param_groups:
-            gparam["lr"] = lr
+            if torch.is_tensor(gparam["lr"]):
+                gparam["lr"].fill_(lr)
+            else:
+                gparam["lr"] = lr
     step_acc += 1.0 / args.utd
     n = int(step_acc)
     step_acc -= n
@@ -576,12 +692,12 @@ for it in range(start_it, args.iterations):
     if prof:
         torch.cuda.synchronize(); tp1 = time.time()
     for _ in range(args.wm_batches):
-        l, e8 = wm_update()
+        l, e8 = wm_update_g() if wm_update_g is not None and it >= args.wm_only_iters else wm_update()
     if prof:
         torch.cuda.synchronize(); tp2 = time.time()
     agg["wm"].append(l), agg["wm8"].append(e8)
     if it >= args.wm_only_iters:
-        pl, vl, ir, gn, surv = policy_update()
+        pl, vl, ir, gn, surv = policy_update_g() if policy_update_g is not None else policy_update()
         if prof:
             torch.cuda.synchronize(); tp3 = time.time()
             print(f"[prof] collect {1e3*(tp1-tp0):.0f} ms ({n} steps) | wm {1e3*(tp2-tp1):.0f} ms | policy+critic {1e3*(tp3-tp2):.0f} ms", flush=True)

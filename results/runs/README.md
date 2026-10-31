@@ -18,3 +18,11 @@ lists which runs form each table row. Two caveats:
   (v1.1, seeds 0–4; `e72` is β = 0.5), `e75`/`e76` world-model ensemble, `e77` mixture-of-experts
   policy, `e80` the 1.5 h v1.1 run. Nothing else used the GPU during these runs; offline evaluation
   and video rendering ran only between runs.
+* v1.2 round (2026-10-30/31): 0.5 h runs with 1.5-minute checkpoints unless noted. `e81`/`e82` EMA 0.997
+  and failure-focused resets 0.5 (0.75 h, 3-minute checkpoints); `e83`, `e106`, `e107` v1.1 re-run
+  (seeds 0–2) as the reference of this round; `e84`–`e87`, `e92`–`e95` horizon, lr, warm-up and
+  reset variants; `e88`–`e90` CUDA-graph updates; `e91`, `e98`, `e99` Muon (seeds 0–2; `e98` was
+  restarted because the first attempt died at start-up); `e96`/`e97` SimBa policy; `e100`, `e101`,
+  `e110` Muon + CUDA graphs + batched goal encoding; `e102`, `e108`, `e109`, `e112`, `e113` v1.2
+  (seeds 0–4); `e103`/`e104` Muon on one network; `e105` spectral norm; `e111` the 1.5 h v1.2 run.
+  Nothing else used the GPU during these runs.

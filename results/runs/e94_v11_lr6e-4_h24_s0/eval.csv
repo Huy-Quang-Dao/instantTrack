@@ -1,0 +1,27 @@
+iteration,train_wall_h,saved_at,eval_at,norm_return,norm_return_framew,n_failed,failed
+942,0.0250,2026-10-31 04:30:38,2026-10-31 05:02:04,0.2642,0.2761,34,dance1_subject1|dance1_subject2|dance1_subject3|dance2_subject1|dance2_subject2|dance2_subject3|dance2_subject4|fallAndGetUp1_subject1|fallAndGetUp1_subject4|fallAndGetUp1_subject5|fallAndGetUp2_subject2|fallAndGetUp2_subject3|fallAndGetUp3_subject1|fight1_subject2|fight1_subject3|fight1_subject5|fightAndSports1_subject1|fightAndSports1_subject4|jumps1_subject1|jumps1_subject2|jumps1_subject5|run1_subject2|run1_subject5|run2_subject1|sprint1_subject4|walk1_subject1|walk1_subject5|walk2_subject1|walk2_subject3|walk2_subject4|walk3_subject1|walk3_subject3|walk3_subject4|walk3_subject5
+1616,0.0500,2026-10-31 04:32:08,2026-10-31 05:02:04,0.6374,0.6684,13,dance1_subject1|dance2_subject4|fallAndGetUp1_subject1|fallAndGetUp1_subject4|fallAndGetUp1_subject5|fallAndGetUp2_subject2|fallAndGetUp2_subject3|fallAndGetUp3_subject1|fight1_subject3|jumps1_subject2|walk3_subject1|walk3_subject3|walk3_subject4
+2000,0.0644,2026-10-31 04:33:00,2026-10-31 05:02:04,0.7128,0.7314,9,dance1_subject1|dance2_subject4|fallAndGetUp1_subject1|fallAndGetUp1_subject4|fallAndGetUp1_subject5|fallAndGetUp2_subject2|fallAndGetUp2_subject3|jumps1_subject2|walk3_subject4
+2288,0.0750,2026-10-31 04:33:38,2026-10-31 05:02:04,0.7462,0.7594,7,dance1_subject1|dance2_subject4|fallAndGetUp1_subject4|fallAndGetUp1_subject5|fallAndGetUp2_subject3|fight1_subject3|jumps1_subject2
+2961,0.1000,2026-10-31 04:35:08,2026-10-31 05:02:04,0.7989,0.8029,1,dance2_subject4
+3637,0.1250,2026-10-31 04:36:38,2026-10-31 05:02:04,0.8238,0.8269,0,
+4000,0.1385,2026-10-31 04:37:27,2026-10-31 05:02:04,0.8268,0.8293,0,
+4308,0.1500,2026-10-31 04:38:08,2026-10-31 05:02:04,0.8143,0.8200,1,fallAndGetUp1_subject1
+4982,0.1750,2026-10-31 04:39:38,2026-10-31 05:02:04,0.8379,0.8397,0,
+5657,0.2000,2026-10-31 04:41:08,2026-10-31 05:02:04,0.8424,0.8441,0,
+6000,0.2128,2026-10-31 04:41:54,2026-10-31 05:02:04,0.8470,0.8482,0,
+6329,0.2250,2026-10-31 04:42:38,2026-10-31 05:02:04,0.8466,0.8478,0,
+7004,0.2500,2026-10-31 04:44:08,2026-10-31 05:02:04,0.8506,0.8518,0,
+7682,0.2750,2026-10-31 04:45:38,2026-10-31 05:02:04,0.8477,0.8504,1,fallAndGetUp1_subject1
+8000,0.2869,2026-10-31 04:46:21,2026-10-31 05:02:04,0.8505,0.8519,0,
+8353,0.3000,2026-10-31 04:47:08,2026-10-31 05:02:04,0.8500,0.8507,0,
+9027,0.3250,2026-10-31 04:48:38,2026-10-31 05:04:26,0.8527,0.8540,0,
+9700,0.3500,2026-10-31 04:50:08,2026-10-31 05:04:26,0.8548,0.8558,0,
+10000,0.3611,2026-10-31 04:50:48,2026-10-31 05:04:26,0.8543,0.8555,0,
+10376,0.3750,2026-10-31 04:51:38,2026-10-31 05:04:26,0.8593,0.8604,0,
+11050,0.4000,2026-10-31 04:53:08,2026-10-31 05:04:26,0.8594,0.8603,0,
+11725,0.4250,2026-10-31 04:54:38,2026-10-31 05:04:26,0.8582,0.8586,0,
+12000,0.4352,2026-10-31 04:55:15,2026-10-31 05:04:26,0.8612,0.8615,0,
+12400,0.4500,2026-10-31 04:56:08,2026-10-31 05:04:26,0.8631,0.8637,0,
+13075,0.4750,2026-10-31 04:57:38,2026-10-31 05:04:26,0.8664,0.8670,0,
+13748,0.5000,2026-10-31 04:59:08,2026-10-31 05:04:26,0.8623,0.8621,0,

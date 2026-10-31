@@ -82,7 +82,7 @@ def main():
     motion = MotionLib([a.motion], Kinematics(robot, dev), dev, robot.load_motion)
     networks.AMP_DTYPE = None  # fp32 graph (training ran the MLPs under bf16 autocast)
     pi = Policy(obs_dim(robot.num_joints), motion.goal_dim(K), robot.num_joints, hist=Hh,
-                ref_residual=ck["args"].get("ref_residual", 0.0), experts=ck["args"].get("pi_experts", 1))
+                ref_residual=ck["args"].get("ref_residual", 0.0), experts=ck["args"].get("pi_experts", 1), simba_arch=ck["args"].get("pi_simba", ""))
     pi.load_state_dict(ck["pi"])
     model = PolicyWithMotion(pi, motion, K).eval()
 

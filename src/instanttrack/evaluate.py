@@ -96,7 +96,7 @@ def evaluate(env: TrackingSim, ck: dict, record: str | None = None) -> dict:
     networks.AMP_DTYPE = torch.bfloat16 if a_.get("amp", "none") == "bf16" else None
     widths = lambda key, default: tuple(int(x) for x in a_.get(key, default).split(","))  # noqa: E731
     pi = Policy(mdp.obs_dim, motion.goal_dim(K), robot.num_joints, hist=Hh, enc_hidden=widths("enc_hidden", "2048,1024,512,256"),
-                dec_hidden=widths("dec_hidden", "2048,1024,512,256"), ref_residual=a_.get("ref_residual", 0.0), experts=a_.get("pi_experts", 1)).to(dev)  # fmt: skip
+                dec_hidden=widths("dec_hidden", "2048,1024,512,256"), ref_residual=a_.get("ref_residual", 0.0), experts=a_.get("pi_experts", 1), simba_arch=a_.get("pi_simba", "")).to(dev)  # fmt: skip
     pi.load_state_dict(ck["pi"])
     pi.eval()
     ids = torch.arange(N, device=dev)

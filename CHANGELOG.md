@@ -8,9 +8,90 @@ with the protocol in the README ("Time to target"); every number below can be re
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-01
+
+### Results
+
+| | 1.1.0 | 1.2.0 |
+|---|---|---|
+| time to return ≥ 0.82 with 0/40 failed clips, held ×3 (mean of 5 seeds) | 0.19 h (0.15 / 0.16 / 0.25 / 0.20 / 0.20) | **0.12 h** (0.10 / 0.10 / 0.10 / 0.10 / 0.18) |
+| speed-up over SuperMimic + EMA (0.55 h) | 2.8× | **4.7×** |
+| iterations to target | 3687–5847 | 3270–3370 (seed 4: 6000) |
+| iterations per second | 6.28 | **8.74** |
+| return / failed clips after 0.15 h (mean) | 0.822 / 0.2 | 0.855 / 0.2 |
+| return, 0.5 h (seeds 0–2, same session) | 0.862 | 0.876 |
+| body position / orientation / joint error, 0.5 h | 3.44 cm / 7.2° / 4.39° | 3.24 cm / 6.7° / 4.36° |
+| contact agreement / foot slip, 0.5 h | 0.804 / 6.76 cm/s | 0.818 / 6.63 cm/s |
+| penetration / root drift, 0.5 h | 0.059 mm / 69 cm | 0.055 mm / 60 cm |
+| return at 1.5 h (1 run; SuperMimic + EMA: 0.879) | 0.880 | 0.886 |
+
+The v1.2 runs were checkpointed every 1.5 minutes. The table uses only the checkpoints on the
+3-minute schedule of earlier releases; with all checkpoints the times are identical.
+
+### Added
+- `--muon`, `--muon_on {pi,wm}` (optimizer): `torch.optim.Muon` with `match_rms_adamw` scaling for
+  the hidden weight matrices of the world model and the policy (all `Linear` layers of each MLP
+  except the first and last); Adam for the remaining parameters and for the critic. Part of the
+  `instanttrack` preset.
+- `--cuda_graph` (systems): captures one world-model update and one policy + critic update as CUDA
+  graphs and replays them. Uses capturable fused Adam with tensor learning rates, an in-place
+  foreach EMA, a loop instead of `cumprod` for the survival weights, and a device copy of the
+  replay buffer's write pointer. Requires `--no_sync --fused_adam`. Part of the `instanttrack` preset.
+- `--batch_goal_enc` (systems): the motion encoder runs once per imagined rollout on all H × B goals.
+  `Policy.forward` takes an optional precomputed latent `z`, and `Policy.encode` is new. Part of the
+  `instanttrack` preset.
+- `--pi_simba WxB` (policy as SimBa residual stacks) and `--wm_specnorm` (spectral norm on the world
+  model's hidden layers). Kept for reproducibility; not used by any preset.
+- `instanttrack_v1.1` preset: the exact v1.1 configuration.
+- Logs of the 33 runs of this round in `results/runs/` (`e81`–`e113`), their commands in
+  `experiments/all_runs.txt`, and metrics in `results/metrics_v12_05h.md` and
+  `results/metrics_v12_150h.md`.
+- `media/equal_time_6min.gif` (SuperMimic + EMA, v1.1 and v1.2 after 6 minutes of training) and new
+  videos on the project page.
+
 ### Changed
-- Result figures renamed to `results/time_to_target.png` and `results/learning_curves.png`, so
-  that cached v1.0 images are not shown in place of the v1.1 ones. Content is unchanged.
+- `instanttrack` preset = v1.1 + `--muon --cuda_graph --batch_goal_enc --enc_hidden 1024,512,256
+  --dec_hidden 1024,512,256`.
+- `tools/make_report.py` compares all methods on the 3-minute checkpoint schedule, reports v1.2,
+  extends the ablation ladder with the v1.2 steps, and marks runs shorter than a table column with "—".
+- `eval_batch.py`, `eval_metrics.py`, `instanttrack.evaluate` and `export_onnx.py` read `pi_simba`
+  from the checkpoint's `args`.
+- Result figures renamed to `results/time_to_target.png` and `results/learning_curves.png` (after
+  1.1.0), so that cached v1.0 images are not shown in place of newer ones.
+
+### Tried and not adopted (single seed unless stated; compared with v1.1 re-run for 0.5 h with 1.5-minute checkpoints, seeds 0 / 1 / 2: 0.15 / 0.15 / 0.16 h)
+| change | held ×3 | note |
+|---|---|---|
+| Muon on the policy only / on the world model only | 0.15 / 0.20 h | the gain needs both |
+| spectral norm on the world model | 0.20 h | a smoother model alone does not help |
+| SimBa residual policy 512×2 (2 seeds) | 0.20 / 0.15 h | 6.07 it/s |
+| CUDA-graph updates without Muon | 0.15 h | +10 % it/s, same time to target |
+| CUDA-graph updates + policy 1024-512-256 without Muon (2 seeds) | 0.15 / 0.15 h | 8.97 it/s, but more iterations |
+| horizon 24 / 16 | 0.15 / 0.20 h | |
+| 200 world-model-only iterations | 0.15 h | |
+| lr 6e-4 (3 seeds) | 0.15 / 0.30 / 0.15 h | hyperparameter tuning |
+| lr 6e-4 + horizon 24 / + failure-focused resets 0.5 | 0.20 / 0.15 h | |
+| EMA 0.997 (seed 2, 0.75 h, 3-minute checkpoints; v1.1 seed 2: 0.25 h) | 0.40 h | |
+| failure-focused resets 0.5 (seed 2, same protocol) | 0.15 h | tuning, one seed |
+
+### Known limitations
+- The smaller policy (1024-512-256) is a network-size choice (a hyperparameter), not a method
+  contribution. With SuperMimic's policy size (2048-1024-512-256), Muon + CUDA graphs + batched goal
+  encoding give 0.10 / 0.15 / 0.10 h on seeds 0–2 at 6.98 it/s (v1.2: 0.10 / 0.10 / 0.10 h at 8.74 it/s).
+  That configuration is measured on 3 seeds only.
+- Seed 4 holds the target only at 0.18 h: after first meeting it at 0.12 h, `jumps1_subject2`
+  fails at the 0.15 h and 0.175 h checkpoints, and 3 re-evaluations of each confirm one failed clip.
+- At 1.5 h (one run) v1.1 has slightly lower pose errors than v1.2 (body position 2.96 vs 3.01 cm,
+  orientation 5.8° vs 6.0°, joints 3.76° vs 3.96°).
+- Root drift at 1.5 h is 52 cm against 50 cm for SuperMimic + EMA (one run each).
+- Under `--cuda_graph` Muon's learning rate is fixed at capture and does not follow the cosine
+  schedule; in a 1.5 h run that is at most 8 % above the schedule.
+- Accuracy at 0.5 h is measured on 3 of the 5 seeds, and the 1.5 h comparison is one run.
+- Simulation only (Unitree G1, LAFAN1). No sim-to-real experiment.
+
+### Compatibility
+No breaking changes. v1.0 and v1.1 checkpoints and logs load and evaluate unchanged. To reproduce
+v1.1 exactly, use the `instanttrack_v1.1` preset. `--cuda_graph` needs a CUDA GPU.
 
 ## [1.1.0] - 2026-10-30
 
@@ -91,6 +172,7 @@ First public release.
   1.50 h for SuperMimic on the same machine.
 - Logs of all 60+ runs, report generator, presets, reproduction script, project page.
 
-[Unreleased]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Huy-Quang-Dao/instantTrack/releases/tag/v1.0.0

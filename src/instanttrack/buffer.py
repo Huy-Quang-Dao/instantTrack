@@ -36,16 +36,21 @@ class ReplayBuffer:
             shp = (T, N) + ((shape,) if isinstance(shape, int) else shape)
             self.data[k] = torch.zeros(shp, dtype=dt, device=device)
         self.ptr, self.size = 0, 0
+        # InstantTrack (CUDA graphs): a device copy of ``ptr`` so that captured sampling follows the write head
+        self.ptr_t = torch.zeros((), dtype=torch.long, device=device) if device != "cpu" else None
 
     def add(self, tr: dict):
         for k in self.fields:
             self.data[k][self.ptr] = tr[k]
         self.ptr = (self.ptr + 1) % self.T
         self.size = min(self.size + 1, self.T)
+        if self.ptr_t is not None:
+            self.ptr_t.fill_(self.ptr)
 
     def _row(self, age: torch.Tensor) -> torch.Tensor:
         """Map age-ordered time index (0 = oldest) to the storage row."""
-        return (self.ptr - self.size + age) % self.T
+        ptr = self.ptr_t if self.ptr_t is not None else self.ptr
+        return (ptr - self.size + age) % self.T
 
     def sample_windows(self, B: int, k: int):
         """k-step windows; returns dict of (B, k, ...) tensors and a validity mask (B, k)."""

@@ -16,14 +16,18 @@ import matplotlib.pyplot as plt
 
 TARGET = 0.82
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
-COLORS = {"InstantTrack v1.1": "#2a78d6", "InstantTrack v1.0": "#86b3e8", "SuperMimic + EMA": "#eb6834", "SuperMimic": "#8a8984"}
+COLORS = {"InstantTrack v1.2": "#2a78d6", "InstantTrack v1.1": "#86b3e8", "InstantTrack v1.0": "#bcd3ee", "SuperMimic + EMA": "#eb6834", "SuperMimic": "#8a8984"}
 
-# 3 seeds per method (v1.1: 5); plain SuperMimic has one 2 h run (it needs ~1.5 h to reach the target)
+V12 = ["e102_v11_muon_graph_bge_pi1024_s0", "e108_v11_muon_graph_bge_pi1024_s1", "e109_v11_muon_graph_bge_pi1024_s2", "e112_v12_s3", "e113_v12_s4"]
+V11_CK15 = ["e83_v11_ck15_s0", "e106_v11_ck15_s1", "e107_v11_ck15_s2"]  # v1.1 re-run with 1.5-minute checkpoints, 0.5 h
+
+# 3 seeds per method (v1.1, v1.2: 5); plain SuperMimic has one 2 h run (it needs ~1.5 h to reach the target)
 METHODS = {
     "SuperMimic": ["e0_supermimic_s0"],
     "SuperMimic + EMA": ["e3_supermimic_ema_s0", "e58_sm_ema_s1", "e59_sm_ema_s2"],
     "InstantTrack v1.0": ["e64_cr025_s0", "e65_cr025_s1", "e66_cr025_s2"],
     "InstantTrack v1.1": ["e71_rres10_s0", "e73_rres10_s1", "e74_rres10_s2", "e78_rres10_s3", "e79_rres10_s4"],
+    "InstantTrack v1.2": V12,
 }
 
 # cumulative ladder from SuperMimic to InstantTrack: (label, runs) — each row adds one change
@@ -38,6 +42,11 @@ LADDER = [
     ("+ contact reward 0.25 = **InstantTrack v1.0**", ["e64_cr025_s0", "e65_cr025_s1", "e66_cr025_s2"]),
     ("+ reference-residual policy (`--ref_residual 1.0`) = **InstantTrack v1.1**",
      ["e71_rres10_s0", "e73_rres10_s1", "e74_rres10_s2", "e78_rres10_s3", "e79_rres10_s4"]),
+    ("v1.1 again, 1.5-minute checkpoints, 0.5 h (reference for the rows below)", V11_CK15),
+    ("+ Muon for hidden weight matrices (`--muon`)", ["e91_v11_muon_s0", "e98_v11_muon_s1", "e99_v11_muon_s2"]),
+    ("+ CUDA-graph updates, goals encoded once per rollout (`--cuda_graph --batch_goal_enc`)",
+     ["e100_v11_muon_graph_bge_s0", "e101_v11_muon_graph_bge_s1", "e110_v11_muon_graph_bge_s2"]),
+    ("+ policy encoder / decoder 1024-512-256 = **InstantTrack v1.2**", V12),
 ]
 
 # single-axis changes that did not help (all on top of the configuration named in the note)
@@ -65,12 +74,31 @@ NEGATIVE = [
     ("WM ensemble, 4 heads, disagreement penalty 100 (`--wm_ens`)", ["e75_rres_ens4p100_s0"], "v1.1"),
     ("WM ensemble, 4 heads, disagreement penalty 300", ["e76_rres_ens4p300_s0"], "v1.1"),
     ("Mixture-of-experts policy, 2 decoders (`--pi_experts 2`)", ["e77_rres_moe2_s0"], "v1.1"),
+    ("EMA 0.997 (seed 2; v1.1 seed 2: 0.25 h)", ["e81_rres_ema997_s2"], "v1.1"),
+    ("Failure-focused resets 0.5 (seed 2; v1.1 seed 2: 0.25 h; tuning, one seed)", ["e82_rres_fr05_s2"], "v1.1"),
+    ("Horizon 24", ["e84_v11_h24_s0"], "v1.1, 1.5-min ckpts"),
+    ("Horizon 16", ["e85_v11_h16_s0"], "v1.1, 1.5-min ckpts"),
+    ("lr 6e-4 (tuning)", ["e86_v11_lr6e-4_s0", "e92_v11_lr6e-4_s1", "e93_v11_lr6e-4_s2"], "v1.1, 1.5-min ckpts"),
+    ("lr 6e-4 + horizon 24", ["e94_v11_lr6e-4_h24_s0"], "v1.1, 1.5-min ckpts"),
+    ("lr 6e-4 + failure-focused resets 0.5", ["e95_v11_lr6e-4_fr05_s0"], "v1.1, 1.5-min ckpts"),
+    ("200 world-model-only iterations (was 100)", ["e87_v11_wmonly200_s0"], "v1.1, 1.5-min ckpts"),
+    ("CUDA-graph updates without Muon", ["e88_v11_graph_s0"], "v1.1, 1.5-min ckpts"),
+    ("CUDA-graph updates + policy 1024-512-256 without Muon", ["e89_v11_graph_pi1024_s0", "e90_v11_graph_pi1024_s1"], "v1.1, 1.5-min ckpts"),
+    ("SimBa residual policy 512×2 (`--pi_simba`)", ["e96_v11_simba512x2_s0", "e97_v11_simba512x2_s1"], "v1.1, 1.5-min ckpts"),
+    ("Muon on the policy only (`--muon_on pi`)", ["e103_v11_muon_pi_s0"], "v1.1, 1.5-min ckpts"),
+    ("Muon on the world model only (`--muon_on wm`)", ["e104_v11_muon_wm_s0"], "v1.1, 1.5-min ckpts"),
+    ("Spectral norm on the world model (`--wm_specnorm`)", ["e105_v11_wm_specnorm_s0"], "v1.1, 1.5-min ckpts"),
 ]
 
 
-def read_eval(run):
+def read_eval(run, coarse=True):
+    """Checkpoints as (h, return, failed, iteration). ``coarse`` keeps the 3-minute protocol (every 0.05 h and every
+    2000 iterations) for runs saved every 1.5 minutes, so that all methods are compared on the same schedule."""
     rows = list(csv.DictReader(open(os.path.join(ROOT, run, "eval.csv"))))
-    return sorted((float(r["train_wall_h"]), float(r["norm_return"]), int(r["n_failed"]), int(r["iteration"])) for r in rows)
+    rows = sorted((float(r["train_wall_h"]), float(r["norm_return"]), int(r["n_failed"]), int(r["iteration"])) for r in rows)
+    if coarse:
+        rows = [r for r in rows if r[3] % 2000 == 0 or abs(r[0] / 0.05 - round(r[0] / 0.05)) < 0.02]
+    return rows
 
 
 def its(run):
@@ -86,6 +114,8 @@ def held(rows, hold=3):
 
 
 def at(rows, h):
+    if rows[-1][0] < h - 1e-3:  # the run is shorter than h
+        return None
     prev = [r for r in rows if r[0] <= h + 1e-6]
     return prev[-1] if prev else None
 
@@ -94,8 +124,8 @@ def fmt(xs, f="{:.2f}"):
     return " / ".join(f.format(x) for x in xs)
 
 
-def summary(runs):
-    ev = {r: read_eval(r) for r in runs}
+def summary(runs, coarse=True):
+    ev = {r: read_eval(r, coarse) for r in runs}
     hs = [held(ev[r]) for r in runs]
     return {
         "held_h": [h[0] if h else float("nan") for h in hs],
@@ -111,7 +141,12 @@ def main():
     S = {m: summary(r) for m, r in METHODS.items()}
     base = st.mean(S["SuperMimic + EMA"]["held_h"])
     out.append("A second v1.1 run of seed 0 for 1.5 h (`e80_rres10_long_s0`) held the target from "
-               f"{held(read_eval('e80_rres10_long_s0'))[0]:.2f} h.\n")
+               f"{held(read_eval('e80_rres10_long_s0'))[0]:.2f} h, and the 1.5 h v1.2 run of seed 0 (`e111_v12_long_s0`) from "
+               f"{held(read_eval('e111_v12_long_s0'))[0]:.2f} h.\n")
+    out.append("v1.2 runs were checkpointed every 1.5 minutes; all tables use only the checkpoints of the 3-minute protocol "
+               "(every 0.05 h and every 2000 iterations). With every 1.5-minute checkpoint, v1.2 holds the target at "
+               f"{fmt(summary(V12, coarse=False)['held_h'])} h and v1.1 (`e83`, `e106`, `e107`) at "
+               f"{fmt(summary(V11_CK15, coarse=False)['held_h'])} h.\n")
 
     out.append("## Time to target (return ≥ 0.82 with 0/40 failed clips, held for 3 checkpoints)\n")
     out.append("| method | seeds | held at (h) | mean (h) | iteration at held | it/s | speed-up vs SuperMimic + EMA |")
@@ -130,18 +165,21 @@ def main():
         for h in hours:
             rs = [at(e, h) for e in s["ev"].values()]
             rs = [r for r in rs if r]
+            if not rs:
+                cells.append("—")
+                continue
             cells.append(f"{st.mean(r[1] for r in rs):.3f} / {st.mean(r[2] for r in rs):.1f}")
         out.append(f"| {m} | " + " | ".join(cells) + " |")
 
     out.append("\n## Ablation ladder (each row adds one change to the row above)\n")
-    out.append("| configuration | seeds | held at (h) | mean (h) | it/s | best return (0.75 h) |")
+    out.append("| configuration | seeds | held at (h) | mean (h) | it/s | best return |")
     out.append("|---|---|---|---|---|---|")
     for label, runs in LADDER:
         s = summary(runs)
         out.append(f"| {label} | {len(runs)} | {fmt(s['held_h'])} | {st.mean(s['held_h']):.2f} | {st.mean(s['its']):.2f} | "
                    f"{fmt(s['best'], '{:.3f}')} |")  # fmt: skip
 
-    out.append("\n## Variants without a time-to-target gain\n")
+    out.append("\n## Variants not adopted\n")
     out.append("| change | on top of | seeds | held at (h) | it/s |")
     out.append("|---|---|---|---|---|")
     for label, runs, ref in NEGATIVE:
@@ -182,14 +220,15 @@ def figures(S):
     grid = [i * 0.025 for i in range(0, 31)]
     for m, s in S.items():
         for k, ax in ((1, axes[0]), (2, axes[1])):
+            g = [h for h in grid if h <= min(e[-1][0] for e in s["ev"].values()) + 1e-3]  # up to the shortest run
             ys = []
             for e in s["ev"].values():
-                ys.append([(at(e, h) or (0, 0, 40, 0))[k] for h in grid])
+                ys.append([(at(e, h) or (0, 0, 40, 0))[k] for h in g])
             ys = list(zip(*ys))
             mean = [st.mean(y) for y in ys]
-            ax.plot(grid, mean, color=COLORS[m], lw=2, label=f"{m} ({len(s['ev'])} seed{'s' if len(s['ev']) > 1 else ''})")
+            ax.plot(g, mean, color=COLORS[m], lw=2, label=f"{m} ({len(s['ev'])} seed{'s' if len(s['ev']) > 1 else ''})")
             if len(s["ev"]) > 1:
-                ax.fill_between(grid, [min(y) for y in ys], [max(y) for y in ys], color=COLORS[m], alpha=0.15, lw=0)
+                ax.fill_between(g, [min(y) for y in ys], [max(y) for y in ys], color=COLORS[m], alpha=0.15, lw=0)
     axes[0].axhline(TARGET, color=INK2, ls="--", lw=1)
     axes[0].text(0.75, TARGET + 0.01, "0.82", ha="right", fontsize=8, color=INK2)
     axes[0].set_ylim(0.3, 0.92)

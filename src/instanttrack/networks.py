@@ -21,6 +21,25 @@ def mlp(inp: int, hidden: list[int], out: int, act=nn.ELU, layer_norm: bool = Fa
     return nn.Sequential(*layers)
 
 
+class SimBaBlock(nn.Module):
+    """Pre-LayerNorm inverted-bottleneck residual block (SimBa, Lee et al., ICLR 2025)."""
+
+    def __init__(self, h: int, expand: int = 4):
+        super().__init__()
+        self.ln = nn.LayerNorm(h)
+        self.fc1, self.fc2 = nn.Linear(h, expand * h), nn.Linear(expand * h, h)
+        nn.init.kaiming_normal_(self.fc1.weight, nonlinearity="relu")
+        nn.init.xavier_normal_(self.fc2.weight)
+
+    def forward(self, x):
+        return x + self.fc2(torch.relu(self.fc1(self.ln(x))))
+
+
+def simba(inp: int, h: int, blocks: int, out: int) -> nn.Sequential:
+    """SimBa stack: linear embedding, residual blocks, post-LayerNorm, linear head."""
+    return nn.Sequential(nn.Linear(inp, h), *[SimBaBlock(h) for _ in range(blocks)], nn.LayerNorm(h), nn.Linear(h, out))
+
+
 class RunningNorm(nn.Module):
     """Running mean/std normalizer; updated from data without gradients, frozen after ``max_count``."""
 
@@ -204,9 +223,12 @@ class Policy(nn.Module):
 
     def __init__(self, obs_dim: int, goal_dim: int, act_dim: int, hist: int = 10, z_dim: int = 32,
                  enc_hidden=(2048, 1024, 512, 256), dec_hidden=(2048, 1024, 512, 256), ref_residual: float = 0.0,
-                 experts: int = 1):  # fmt: skip
+                 experts: int = 1, simba_arch: str = ""):  # fmt: skip
         """``experts`` E > 1 (InstantTrack): E decoders mixed by a softmax gate on the motion latent z, so
-        dissimilar motions (walking, dancing, getting up) need not share one decoder."""
+        dissimilar motions (walking, dancing, getting up) need not share one decoder.
+
+        ``simba_arch`` "<width>x<blocks>" (InstantTrack): encoder and decoder are SimBa residual stacks instead of
+        plain MLPs (the observation / goal running normalizers stay as in SimBa)."""
         super().__init__()
         self.hist = hist
         self.ref_residual = ref_residual
@@ -214,9 +236,15 @@ class Policy(nn.Module):
         if ref_residual > 0:
             self.register_buffer("q_default", torch.zeros(act_dim))
             self.register_buffer("alpha", torch.ones(act_dim))
-        self.enc = mlp(goal_dim, list(enc_hidden), z_dim)
-        self.dec = mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim)
+        if simba_arch:
+            sw, sb = (int(x) for x in simba_arch.split("x"))
+            self.enc = simba(goal_dim, sw, sb, z_dim)
+            self.dec = simba(z_dim + obs_dim * hist, sw, sb, act_dim)
+        else:
+            self.enc = mlp(goal_dim, list(enc_hidden), z_dim)
+            self.dec = mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim)
         if experts > 1:
+            assert not simba_arch
             self.decs = nn.ModuleList([self.dec] + [mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim) for _ in range(experts - 1)])
             self.gate = nn.Linear(z_dim, experts)
             nn.init.zeros_(self.gate.weight), nn.init.zeros_(self.gate.bias)
@@ -227,9 +255,11 @@ class Policy(nn.Module):
         self.obs_norm = RunningNorm(obs_dim)
         self.goal_norm = RunningNorm(goal_dim)
 
-    def forward(self, obs_hist: torch.Tensor, goal: torch.Tensor) -> torch.Tensor:
-        """obs_hist: (B, hist, obs_dim) noisy observations, newest last."""
-        z = torch.tanh(run_mlp(self.enc, self.goal_norm(goal)))
+    def forward(self, obs_hist: torch.Tensor, goal: torch.Tensor, z: torch.Tensor | None = None) -> torch.Tensor:
+        """obs_hist: (B, hist, obs_dim) noisy observations, newest last. ``z`` (optional) is ``encode(goal)``
+        computed beforehand, e.g. for a whole imagined horizon at once."""
+        if z is None:
+            z = self.encode(goal)
         o = self.obs_norm(obs_hist).flatten(-2)
         x = torch.cat((z, o), -1)
         if self.experts > 1:
@@ -241,6 +271,10 @@ class Policy(nn.Module):
             q_next = goal[..., 15 : 15 + a.shape[-1]]
             a = a + self.ref_residual * (q_next - self.q_default) / self.alpha
         return a
+
+    def encode(self, goal: torch.Tensor) -> torch.Tensor:
+        """Motion latent z from goal features (reference only, independent of the robot state)."""
+        return torch.tanh(run_mlp(self.enc, self.goal_norm(goal)))
 
     def set_reference_action(self, q_default: torch.Tensor, alpha: torch.Tensor):
         self.q_default.copy_(q_default), self.alpha.copy_(alpha)
