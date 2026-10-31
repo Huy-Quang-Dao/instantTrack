@@ -4,8 +4,8 @@
 (function(){
   "use strict";
   var D = {
-  /* InstantTrack runs: evaluation return against training hours; gpu1 = InstantTrack v1.1 (mean of 5 seeds), gpu2 = SuperMimic + EMA (mean of 3 seeds), sonic = target 0.82 */
-  compute: {gpu1: [[0.05,0.593], [0.075,0.63], [0.1,0.756], [0.125,0.756], [0.15,0.822], [0.175,0.828], [0.2,0.833], [0.225,0.833], [0.25,0.844], [0.275,0.845], [0.3,0.852], [0.325,0.852], [0.35,0.855], [0.375,0.855], [0.4,0.861], [0.425,0.861], [0.45,0.863], [0.475,0.863], [0.5,0.865], [0.525,0.865], [0.55,0.866], [0.575,0.866], [0.6,0.867], [0.625,0.867], [0.65,0.868], [0.675,0.868], [0.7,0.871], [0.725,0.872], [0.75,0.871]],
+  /* InstantTrack runs: evaluation return against training hours; gpu1 = InstantTrack v1.2 (mean of 5 seeds, 0.5 h runs), gpu2 = SuperMimic + EMA (mean of 3 seeds), sonic = target 0.82 */
+  compute: {gpu1: [[0.05,0.726], [0.075,0.763], [0.1,0.845], [0.125,0.851], [0.15,0.855], [0.175,0.855], [0.2,0.86], [0.225,0.86], [0.25,0.866], [0.275,0.866], [0.3,0.867], [0.325,0.868], [0.35,0.869], [0.375,0.872], [0.4,0.872], [0.425,0.872], [0.45,0.873], [0.475,0.873], [0.5,0.875]],
     gpu2: [[0.15, 0.54], [0.175, 0.545], [0.2, 0.584], [0.225, 0.601], [0.25, 0.63], [0.275, 0.646], [0.3, 0.675], [0.325, 0.749], [0.35, 0.781], [0.375, 0.784], [0.4, 0.795], [0.425, 0.795], [0.45, 0.799], [0.475, 0.805], [0.5, 0.819], [0.525, 0.826], [0.55, 0.83], [0.575, 0.825], [0.6, 0.836], [0.625, 0.836], [0.65, 0.842], [0.675, 0.842], [0.7, 0.845], [0.725, 0.847], [0.75, 0.847]],
     sonic: 0.82},
   /* paper figure fig:compute (b, c): GPU-hours to target, 0.539 x proportional line (drawn over 1-7 h), 8-step prediction error */
@@ -163,7 +163,7 @@
     }
     var ser = {1: f.gpu1, 2: f.gpu2};
     /* rest markers: x of the paper's budget, and its label */
-    var REST = {1: {x: 0.2, v: "0.19 h", k: "InstantTrack v1.1 holds the target (mean)"}, 2: {x: 0.55, v: "0.55 h", k: "SuperMimic + EMA holds the target"}};
+    var REST = {1: {x: 0.116, v: "0.12 h", k: "InstantTrack v1.2 holds the target (mean)"}, 2: {x: 0.55, v: "0.55 h", k: "SuperMimic + EMA holds the target"}};
     el._sx = sx; el._ser = ser;
     /* quiet dotted guides at the paper's y ticks below the SONIC line, values left of the plot; the x baseline */
     [[0.5, "0.5"], [0.6, "0.6"], [0.7, "0.7"], [0.9, "0.9"]].forEach(function(t){
