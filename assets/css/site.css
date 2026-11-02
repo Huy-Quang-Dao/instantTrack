@@ -74,6 +74,7 @@ img,video,svg{display:block;max-width:100%}
 /* hero */
 .hero{padding:clamp(56px,10vw,110px) 0 var(--sec);text-align:center}
 .hero-sub{margin:20px auto 0;max-width:720px;font:500 clamp(19px,2.4vw,26px)/1.35 var(--display);color:var(--ink2);letter-spacing:-.01em}
+.hero-authors{margin:18px 0 0;font:500 17px/1.4 var(--text);color:var(--ink)}
 .hero-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:28px 0 0}
 .btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:999px;font:500 17px/1 var(--text);border:1px solid var(--hair);color:var(--ink)}
 .btn.solid{background:var(--blue);border-color:var(--blue);color:#fff}
