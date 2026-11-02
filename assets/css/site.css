@@ -1,10 +1,10 @@
 /* InstantGMT project page. Visual language adapted from the SuperMimic project page
    (https://supermimic.github.io); layout ideas from the NablaMimic page (https://sailab.ai/nablamimic/). */
 :root{
-  --page:#ffffff; --band:#f5f5f7; --fill:#e8e8ed; --hair:#d2d2d7;
-  --ink:#1d1d1f; --ink2:#6e6e73; --ink3:#86868b;
-  --blue:#0071e3; --blue-soft:#e8f1fc; --green:#1a7f37;
-  --ph:#fafafc; --ph-line:#c7c7cc;
+  --page:#eef5fc; --band:#e1edf9; --card:#ffffff; --fill:#d3e3f4; --hair:#c3d5e9;
+  --ink:#0d1b2a; --ink2:#4b5d73; --ink3:#7487a0;
+  --blue:#0a66c2; --blue-soft:#dcebfb; --green:#1a7f37;
+  --ph:#f7fbff; --ph-line:#9fbbdb;
   --display:"Inter Tight","Inter","Helvetica Neue",Arial,sans-serif;
   --text:"Inter","Helvetica Neue",Arial,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
@@ -15,18 +15,18 @@
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --page:#000000; --band:#111113; --fill:#1d1d20; --hair:#38383c;
-    --ink:#f5f5f7; --ink2:#a1a1a6; --ink3:#8e8e93;
-    --blue:#2997ff; --blue-soft:#0b2340; --green:#3fb950;
-    --ph:#0c0c0e; --ph-line:#48484d;
+    --page:#07111e; --band:#0b1828; --card:#112136; --fill:#1a2c44; --hair:#26394f;
+    --ink:#eaf2fb; --ink2:#9db0c6; --ink3:#7489a3;
+    --blue:#4aa3ff; --blue-soft:#10294a; --green:#3fb950;
+    --ph:#0c1a2b; --ph-line:#36557a;
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --page:#000000; --band:#111113; --fill:#1d1d20; --hair:#38383c;
-  --ink:#f5f5f7; --ink2:#a1a1a6; --ink3:#8e8e93;
-  --blue:#2997ff; --blue-soft:#0b2340; --green:#3fb950;
-  --ph:#0c0c0e; --ph-line:#48484d;
+  --page:#07111e; --band:#0b1828; --card:#112136; --fill:#1a2c44; --hair:#26394f;
+  --ink:#eaf2fb; --ink2:#9db0c6; --ink3:#7489a3;
+  --blue:#4aa3ff; --blue-soft:#10294a; --green:#3fb950;
+  --ph:#0c1a2b; --ph-line:#36557a;
   color-scheme:dark;
 }
 @media (min-width:735px){:root{--gut:32px; --sec:110px}}
@@ -72,7 +72,7 @@ img,video,svg{display:block;max-width:100%}
 .story-head{text-align:center;margin-bottom:44px}
 
 /* hero */
-.hero{padding:clamp(56px,10vw,110px) 0 var(--sec);text-align:center}
+.hero{padding:0 0 var(--sec);text-align:center}
 .hero-sub{margin:20px auto 0;max-width:720px;font:500 clamp(19px,2.4vw,26px)/1.35 var(--display);color:var(--ink2);letter-spacing:-.01em}
 .hero-authors{margin:18px 0 0;font:500 17px/1.4 var(--text);color:var(--ink)}
 .hero-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:28px 0 0}
@@ -86,8 +86,7 @@ img,video,svg{display:block;max-width:100%}
 /* stat tiles */
 .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}
 @media (min-width:900px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.stat{background:var(--band);border-radius:var(--r);padding:22px 20px;text-align:left}
-.band .stat{background:var(--page)}
+.stat{background:var(--card);border-radius:var(--r);padding:22px 20px;text-align:left}
 .stat .v{display:block;font:600 clamp(30px,4.2vw,44px)/1.05 var(--display);letter-spacing:-.02em}
 .stat .v.tbd{color:var(--ink3)}
 .stat .k{display:block;margin-top:8px;font-size:14px;line-height:1.35;color:var(--ink2)}
@@ -110,10 +109,9 @@ img,video,svg{display:block;max-width:100%}
 .vcap b{color:var(--ink)}
 
 /* loop diagram */
-.loop{background:var(--band);border-radius:28px;padding:clamp(20px,4vw,44px)}
-.band .loop{background:var(--page)}
+.loop{background:var(--card);border-radius:28px;padding:clamp(20px,4vw,44px)}
 .loop svg{width:100%;height:auto}
-.loop .nd rect{fill:var(--band);stroke:var(--hair)}
+.loop .nd rect{fill:var(--page);stroke:var(--hair)}
 .loop .nd.hi rect{fill:var(--blue-soft);stroke:var(--blue)}
 .loop .t{font:600 26px var(--display);fill:var(--ink)}
 .loop .s{font:400 15px var(--text);fill:var(--ink2)}
@@ -127,15 +125,14 @@ img,video,svg{display:block;max-width:100%}
 .cards{display:grid;gap:14px;grid-template-columns:1fr}
 @media (min-width:735px){.cards{grid-template-columns:repeat(2,1fr)}}
 @media (min-width:1000px){.cards.c3{grid-template-columns:repeat(3,1fr)}}
-.card{background:var(--band);border-radius:var(--r);padding:26px 24px;display:flex;flex-direction:column;gap:10px}
-.band .card{background:var(--page)}
+.card{background:var(--card);border-radius:var(--r);padding:26px 24px;display:flex;flex-direction:column;gap:10px}
 .card .no{font:500 13px/1 var(--mono);color:var(--blue)}
 .card h3{margin:0;font:600 22px/1.2 var(--display);letter-spacing:-.01em}
 .card p{margin:0;font-size:15px;line-height:1.45;color:var(--ink2)}
 .card .v{margin-top:auto;padding-top:8px;font:600 15px/1.2 var(--display);color:var(--ink3)}
 
 /* tables */
-.tile{background:var(--page);border-radius:var(--r);padding:clamp(16px,3vw,32px);overflow-x:auto}
+.tile{background:var(--card);border-radius:var(--r);padding:clamp(16px,3vw,32px);overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:15px;min-width:520px}
 caption{caption-side:top;text-align:left;font:600 17px/1.3 var(--display);padding-bottom:14px}
 th,td{padding:12px 10px;text-align:center;border-bottom:1px solid var(--hair)}
@@ -163,7 +160,7 @@ td.no{color:var(--ink3)}
 .paper h2{margin:0 auto;max-width:900px;font:600 clamp(26px,3.4vw,38px)/1.18 var(--display);letter-spacing:-.015em}
 .authors{margin:18px 0 0;font-size:18px}
 .affil{margin:8px auto 0;max-width:760px;font-size:15px;color:var(--ink2)}
-.bib{max-width:760px;margin:32px auto 0;text-align:left;background:var(--band);border-radius:16px;overflow:hidden}
+.bib{max-width:760px;margin:32px auto 0;text-align:left;background:var(--card);border-radius:16px;overflow:hidden}
 .bib-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--hair);font:600 14px var(--display)}
 .copybtn{font:500 13px var(--text);background:none;border:1px solid var(--hair);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
 .bib pre{margin:0;padding:16px;font:400 13px/1.55 var(--mono);overflow-x:auto;color:var(--ink)}
@@ -174,3 +171,19 @@ footer{padding:28px var(--gut) 40px;text-align:center;font-size:12px;color:var(-
 .js .rv{opacity:0;transform:translateY(18px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
 .js .rv.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.js .rv{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+
+/* hero morph: "InstantGMT" -> "Instant General Motion Tracking" while scrolling */
+.morph-stage{position:relative}
+.js .morph-stage{height:135vh}
+.morph-pin{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px var(--gut) 24px;--p:1}
+.js .morph-pin{position:sticky;top:52px;height:calc(100vh - 52px);--p:0}
+.morph{margin:0;font:600 calc(clamp(52px,11vw,132px) * (1 - .42 * var(--p)))/1.05 var(--display);letter-spacing:-.03em;max-width:100%}
+.morph .w{white-space:nowrap}
+.morph .w>b{font-weight:600;color:var(--blue)}
+.morph .x{display:inline-block;vertical-align:bottom;overflow:hidden;white-space:pre;max-width:calc(var(--p) * var(--w, 8em));opacity:var(--p)}
+.morph-tag{margin:22px 0 0;font:600 clamp(24px,3.6vw,40px)/1.15 var(--display);letter-spacing:-.02em;opacity:var(--p);transform:translateY(calc((1 - var(--p)) * 14px))}
+.morph-hint{position:absolute;bottom:22px;left:0;right:0;font-size:13px;color:var(--ink3);opacity:calc(1 - var(--p) * 3)}
+.morph-hint svg{width:16px;height:16px;margin:6px auto 0;animation:bob 1.6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(5px)}}
+.hero-after{padding-top:8px}
+@media (prefers-reduced-motion:reduce){.js .morph-stage{height:auto}.js .morph-pin{position:static;height:auto;--p:1}.morph-hint{display:none}}

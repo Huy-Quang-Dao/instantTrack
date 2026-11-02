@@ -30,3 +30,35 @@
     });
   }
 })();
+
+/* Hero morph: scroll progress through the pinned stage drives --p (0 -> 1). */
+(function(){
+  "use strict";
+  var stage = document.getElementById("morphStage"), pin = document.getElementById("morphPin");
+  if (!stage || !pin) return;
+  var xs = pin.querySelectorAll(".x");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function measure(){
+    // natural width of each hidden fragment, in em of the title, so it scales with the font size
+    var h1 = pin.querySelector(".morph"), fs = parseFloat(getComputedStyle(h1).fontSize) || 1;
+    xs.forEach(function(x){
+      x.style.maxWidth = "none";
+      var w = x.getBoundingClientRect().width / fs;
+      x.style.maxWidth = "";
+      x.style.setProperty("--w", (w + 0.02).toFixed(3) + "em");
+    });
+  }
+  function update(){
+    if (reduce){ pin.style.setProperty("--p", "1"); return; }
+    var r = stage.getBoundingClientRect(), span = stage.offsetHeight - pin.offsetHeight;
+    var p = span > 0 ? Math.min(1, Math.max(0, -r.top / (span * 0.85))) : 1;
+    p = p * p * (3 - 2 * p);  // smoothstep
+    pin.style.setProperty("--p", p.toFixed(4));
+  }
+  var queued = false;
+  function onScroll(){ if (!queued){ queued = true; requestAnimationFrame(function(){ queued = false; update(); }); } }
+  pin.style.setProperty("--p", "1"); measure(); update();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ pin.style.setProperty("--p", "1"); measure(); update(); });
+  window.addEventListener("scroll", onScroll, {passive:true});
+  window.addEventListener("resize", function(){ pin.style.setProperty("--p", "1"); measure(); update(); });
+})();
