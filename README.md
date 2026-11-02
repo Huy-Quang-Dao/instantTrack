@@ -15,19 +15,26 @@ reimplementation of SuperMimic needs **1.50 h**, and SuperMimic with the policy 
 > The v1.1 and v1.0 configurations stay available as the `instanttrack_v1.1` and
 > `instanttrack_v1.0` presets.
 
+> **New: InstantGMT (in progress).** InstantTrack's training ideas applied to general motion
+> tracking for humanoid teleoperation: one policy for a large VR-teleoperation motion library, with
+> the network, observations and deployment interface of a policy already running on a robot, trained
+> in hours instead of most of a day on one GPU. Project page:
+> <https://huy-quang-dao.github.io/instantTrack/>. Paper in preparation; code to follow.
+
 InstantTrack builds on SuperMimic (one differentiable world model, backpropagation through imagined
 rollouts) and adds InstantMimic-style GPU work on the training loop, a few algorithmic changes and a
 contact reward. It runs on [mjlab](https://github.com/mujocolab/mjlab) / MuJoCo Warp and is
 installed with [uv](https://docs.astral.sh/uv/).
 
-**Project page:** <https://huy-quang-dao.github.io/instantTrack/>
+**Project page:** the InstantTrack page is kept in the [`instanttrack-page`](https://github.com/Huy-Quang-Dao/instantTrack/tree/instanttrack-page) branch. The
+GitHub Pages site of this repository now hosts InstantGMT (above).
 
 ![Same 6 minutes of training: SuperMimic + EMA, InstantTrack v1.1 and InstantTrack v1.2 on fallAndGetUp2_subject3.](media/equal_time_6min.gif)
 
 *All three policies trained for 6 minutes (0.10 h) on one RTX 5090, shown on `fallAndGetUp2_subject3`.
 At this checkpoint, over all 40 clips, SuperMimic + EMA fails 15, InstantTrack v1.1 fails 6 and
 InstantTrack v1.2 fails 0 (`eval.csv` of seed 0). Solid robot: policy simulated in MuJoCo Warp. Faint
-blue ghost: reference motion. More videos on the [project page](https://huy-quang-dao.github.io/instantTrack/).*
+blue ghost: reference motion. More videos in `media/` of the [`instanttrack-page`](https://github.com/Huy-Quang-Dao/instantTrack/tree/instanttrack-page) branch.*
 
 | on 1× RTX 5090, 40 LAFAN1 clips | SuperMimic | SuperMimic + EMA | InstantTrack v1.1 | **InstantTrack v1.2** |
 |---|---|---|---|---|
