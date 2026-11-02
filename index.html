@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>InstantGMT</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="InstantGMT trains a teleoperation-grade general motion tracking policy for a humanoid in hours on one GPU, with the same network and deployment interface.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="InstantGMT">
+<meta property="og:title" content="InstantGMT">
+<meta property="og:description" content="General motion tracking for humanoid teleoperation, trained in hours on one GPU.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css">
+<script>document.documentElement.classList.add("js")</script>
+<script src="assets/js/site.js" defer onerror="document.documentElement.classList.remove('js')"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="2.5" y="5" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16.5 10l5-3v10l-5-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-fig" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 15l5-4 4 3 3-2 6 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 20 20"><path d="M3 7l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<nav class="nav" aria-label="InstantGMT">
+  <a class="nav-title" href="#top">InstantGMT</a>
+  <div class="nav-links">
+    <a href="#speed">Speed</a>
+    <a href="#method">Method</a>
+    <a href="#deploy">Deployment</a>
+    <a href="#results">Results</a>
+    <a href="#faq">Questions</a>
+  </div>
+  <a class="pill out" href="#cite">Cite</a>
+  <a class="pill solid" aria-disabled="true">Code soon</a>
+</nav>
+
+<main id="main">
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="wrap-copy">
+    <p class="eyebrow rv">InstantGMT</p>
+    <h1 class="hx rv">Hours, not a day.</h1>
+    <p class="hero-sub rv">General motion tracking for humanoid teleoperation, trained on one GPU.</p>
+    <div class="hero-btns rv">
+      <a class="btn solid" aria-disabled="true">Paper <span class="soon">soon</span></a>
+      <a class="btn" aria-disabled="true">Code <span class="soon">soon</span></a>
+      <a class="btn" href="#deploy">See it on the robot</a>
+    </div>
+  </div>
+  <div class="wrap hero-stage">
+    <div class="ph r169 rv" role="img" aria-label="Teaser video placeholder">
+      <svg aria-hidden="true"><use href="#i-video"/></svg>
+      <span class="t">Teaser video</span>
+      <span class="d">Real robot, live VR teleoperation with an InstantGMT policy.</span>
+      <span class="tag">coming soon</span>
+    </div>
+    <div class="stats">
+      <div class="stat rv"><span class="v tbd">— h</span><span class="k">to match the deployed policy</span></div>
+      <div class="stat rv"><span class="v">1 GPU</span><span class="k">one desktop RTX 5090</span></div>
+      <div class="stat rv"><span class="v tbd">— ×</span><span class="k">less training time, same data and machine</span></div>
+      <div class="stat rv"><span class="v">0</span><span class="k">changes to the network, observations or robot controller</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- SPEED -->
+<section class="sec band" id="speed">
+  <div class="wrap-copy story-head">
+    <p class="eyebrow rv">Speed</p>
+    <h2 class="h2 rv">Same data. Same GPU.<br>A fraction of the time.</h2>
+    <p class="lede rv">The policy running on our robot took most of a day to train. <b>InstantGMT reaches the same tracking quality in hours</b>, with the same motion library, network and evaluation.</p>
+  </div>
+  <div class="wrap-mid">
+    <div class="ph r21 rv" role="img" aria-label="Chart placeholder">
+      <svg aria-hidden="true"><use href="#i-chart"/></svg>
+      <span class="t">Tracking quality against training time</span>
+      <span class="d">InstantGMT vs. the baseline that trained the deployed policy. Falls per 1000 motions and return, both evaluation modes.</span>
+      <span class="tag">figure coming soon</span>
+    </div>
+    <div class="stats">
+      <div class="stat rv"><span class="v tbd">— h</span><span class="k">baseline, to the deployed policy's quality</span></div>
+      <div class="stat rv"><span class="v tbd">— h</span><span class="k">InstantGMT, to the same quality</span></div>
+      <div class="stat rv"><span class="v tbd">— it/s</span><span class="k">training iterations per second</span></div>
+      <div class="stat rv"><span class="v tbd">— %</span><span class="k">GPU busy time (was about 50%)</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section class="sec" id="method">
+  <div class="wrap-copy story-head">
+    <p class="eyebrow rv">Method</p>
+    <h2 class="h2 rv">One loop. Nothing wasted.</h2>
+    <p class="lede rv">InstantGMT keeps SuperMimic's loop: a learned world model and analytic policy gradients through it. <b>It changes how the loop runs, not what it learns.</b></p>
+  </div>
+  <div class="wrap-mid">
+    <div class="loop rv">
+      <svg class="h" viewBox="0 0 1000 300" role="img" aria-label="Training loop: collect in simulation, fit the world model, imagine and backpropagate through it">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#86868b"/></marker>
+          <marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0071e3"/></marker>
+        </defs>
+        <g class="nd"><rect x="20" y="80" width="250" height="150" rx="20"/><text class="t" x="44" y="128">Collect</text><text class="s" x="44" y="156">4096 robots in simulation</text><text class="s" x="44" y="178">teleop motion library</text><text class="s" x="44" y="206">→ replay buffer</text></g>
+        <g class="nd"><rect x="375" y="80" width="250" height="150" rx="20"/><text class="t" x="399" y="128">Fit</text><text class="s" x="399" y="156">differentiable world model</text><text class="s" x="399" y="178">Muon · CUDA graphs</text><text class="s" x="399" y="206">parallel-ankle closure inside</text></g>
+        <g class="nd hi"><rect x="730" y="80" width="250" height="150" rx="20"/><text class="t" x="754" y="128">Imagine</text><text class="s" x="754" y="156">32-step rollouts</text><text class="s" x="754" y="178">EMA policy · Muon</text><text class="s" x="754" y="206">CUDA graphs</text></g>
+        <path class="ar" d="M276 155H368" marker-end="url(#ah)"/>
+        <path class="ar" d="M631 155H723" marker-end="url(#ah)"/>
+        <path class="ar" d="M855 74V30H145V72" marker-end="url(#ah)"/>
+        <text class="s" x="500" y="22" text-anchor="middle">updated policy acts again · no host syncs</text>
+        <path class="bp" d="M940 262H770" marker-end="url(#ahb)"/>
+        <text class="bl" x="730" y="290">backprop through the world model</text>
+      </svg>
+      <svg class="v" viewBox="0 0 340 600" role="img" aria-label="Training loop: collect, fit, imagine">
+        <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#86868b"/></marker></defs>
+        <g class="nd"><rect x="30" y="10" width="270" height="130" rx="20"/><text class="t" x="54" y="54">Collect</text><text class="s" x="54" y="82">4096 robots in simulation</text><text class="s" x="54" y="110">→ replay buffer</text></g>
+        <g class="nd"><rect x="30" y="200" width="270" height="130" rx="20"/><text class="t" x="54" y="244">Fit</text><text class="s" x="54" y="272">world model · Muon</text><text class="s" x="54" y="300">CUDA graphs</text></g>
+        <g class="nd hi"><rect x="30" y="390" width="270" height="150" rx="20"/><text class="t" x="54" y="434">Imagine</text><text class="s" x="54" y="462">32 steps · EMA policy</text><text class="s" x="54" y="490">backprop through the model</text></g>
+        <path class="ar" d="M165 146V194" marker-end="url(#ah2)"/>
+        <path class="ar" d="M165 336V384" marker-end="url(#ah2)"/>
+        <path class="ar" d="M306 465H326V75H306" marker-end="url(#ah2)"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="wrap" style="margin-top:56px">
+    <div class="cards c3">
+      <article class="card rv"><span class="no">01</span><h3>An averaged policy</h3><p>The deployed policy is an exponential moving average of the trained one. Less noise between checkpoints, earlier good checkpoints.</p><span class="v">effect: —</span></article>
+      <article class="card rv"><span class="no">02</span><h3>Muon</h3><p>Orthogonalized updates for the hidden layers of the world model and the policy. Same learning-rate schedule.</p><span class="v">effect: —</span></article>
+      <article class="card rv"><span class="no">03</span><h3>No host syncs</h3><p>Guards, metrics and timers stay on the GPU, so the CPU never waits for it inside an iteration.</p><span class="v">effect: —</span></article>
+      <article class="card rv"><span class="no">04</span><h3>One graph per step</h3><p>The parallel-ankle closure no longer breaks the compiled world-model step. Each update replays as a CUDA graph.</p><span class="v">effect: —</span></article>
+      <article class="card rv"><span class="no">05</span><h3>Read each motion once</h3><p>The reference windows of a rollout overlap. One gather per rollout from the host-side library replaces ten.</p><span class="v">effect: —</span></article>
+      <article class="card rv"><span class="no">06</span><h3>The same policy</h3><p>Network, observations, actions and rewards are unchanged. The checkpoint drops into the existing robot controller.</p><span class="v">effect: drop-in</span></article>
+    </div>
+  </div>
+</section>
+
+<!-- DEPLOYMENT -->
+<section class="sec band" id="deploy">
+  <div class="wrap-copy story-head">
+    <p class="eyebrow rv">Deployment</p>
+    <h2 class="h2 rv">From one GPU to the robot.</h2>
+    <p class="lede rv">Checked in a second simulator with the robot's own controller, then on hardware with live VR teleoperation.</p>
+  </div>
+  <div class="wrap">
+    <div class="vgrid c3">
+      <figure class="rv" style="margin:0"><div class="ph r43"><svg aria-hidden="true"><use href="#i-video"/></svg><span class="t">Sim-to-sim</span><span class="tag">video coming soon</span></div><figcaption class="vcap"><b>Sim-to-sim.</b> The robot controller, in a second simulator.</figcaption></figure>
+      <figure class="rv" style="margin:0"><div class="ph r43"><svg aria-hidden="true"><use href="#i-video"/></svg><span class="t">Teleoperation</span><span class="tag">video coming soon</span></div><figcaption class="vcap"><b>Real robot.</b> Live VR teleoperation.</figcaption></figure>
+      <figure class="rv" style="margin:0"><div class="ph r43"><svg aria-hidden="true"><use href="#i-video"/></svg><span class="t">Hard motions</span><span class="tag">video coming soon</span></div><figcaption class="vcap"><b>Hard motions.</b> Fast turns, squats, single-leg balance.</figcaption></figure>
+    </div>
+    <div class="vgrid c2" style="margin-top:14px">
+      <figure class="rv" style="margin:0"><div class="ph r169"><svg aria-hidden="true"><use href="#i-video"/></svg><span class="t">Deployed baseline policy</span><span class="tag">video coming soon</span></div><figcaption class="vcap"><b>Baseline.</b> The policy deployed today.</figcaption></figure>
+      <figure class="rv" style="margin:0"><div class="ph r169"><svg aria-hidden="true"><use href="#i-video"/></svg><span class="t">InstantGMT policy</span><span class="tag">video coming soon</span></div><figcaption class="vcap"><b>InstantGMT.</b> Same motion, a fraction of the training time.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section class="sec" id="results">
+  <div class="wrap-copy story-head">
+    <p class="eyebrow rv">Results</p>
+    <h2 class="h2 rv">As good as the deployed policy.<br>Measured, not eyeballed.</h2>
+    <p class="lede rv">1000 segments sampled from the motion library, each up to 20 s, in a clean setting and with the randomization and noise of training.</p>
+  </div>
+  <div class="wrap-mid">
+    <div class="tile rv" style="background:var(--band)">
+      <table>
+        <caption>Tracking quality on 1000 motion segments</caption>
+        <thead><tr><th scope="col">Metric</th><th scope="col">Baseline<br><span style="font-weight:400">deployed policy</span></th><th scope="col" class="hl">InstantGMT</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Training time</th><td class="tbd">—</td><td class="tbd hl">—</td></tr>
+          <tr><th scope="row">Falls / 1000 · clean</th><td class="tbd">—</td><td class="tbd hl">—</td></tr>
+          <tr><th scope="row">Return · clean</th><td class="tbd">—</td><td class="tbd hl">—</td></tr>
+          <tr><th scope="row">Falls / 1000 · randomized</th><td class="tbd">—</td><td class="tbd hl">—</td></tr>
+          <tr><th scope="row">Return · randomized</th><td class="tbd">—</td><td class="tbd hl">—</td></tr>
+          <tr><th scope="row">Action rate (smoothness)</th><td class="tbd">—</td><td class="tbd hl">—</td></tr>
+        </tbody>
+      </table>
+      <p class="fnote">Numbers will be filled in with the paper.</p>
+    </div>
+  </div>
+
+  <div class="wrap-mid" style="margin-top:56px">
+    <div class="tile rv" style="background:var(--band)">
+      <table>
+        <caption>Side by side</caption>
+        <thead><tr><th scope="col"></th><th scope="col">Baseline<br><span style="font-weight:400">SuperMimic-style GMT</span></th><th scope="col" class="hl">InstantGMT</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Learned, differentiable world model</th><td class="yes">✓</td><td class="yes hl">✓</td></tr>
+          <tr><th scope="row">Analytic policy gradients</th><td class="yes">✓</td><td class="yes hl">✓</td></tr>
+          <tr><th scope="row">Same network, observations and rewards</th><td class="yes">✓</td><td class="yes hl">✓</td></tr>
+          <tr><th scope="row">Averaged (EMA) policy</th><td class="no">✗</td><td class="yes hl">✓</td></tr>
+          <tr><th scope="row">Muon optimizer</th><td class="no">✗</td><td class="yes hl">✓</td></tr>
+          <tr><th scope="row">No host syncs in the loop</th><td class="no">✗</td><td class="yes hl">✓</td></tr>
+          <tr><th scope="row">CUDA-graph updates</th><td class="no">✗</td><td class="yes hl">✓</td></tr>
+          <tr><th scope="row">Hardware</th><td>1 RTX 5090</td><td class="hl">1 RTX 5090</td></tr>
+          <tr><th scope="row">Training time</th><td class="tbd">—</td><td class="tbd hl">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="sec band" id="faq">
+  <div class="wrap">
+    <h2 class="h2 center rv">Questions? Answers.</h2>
+    <div class="faq" id="faqList">
+      <details><summary>What is general motion tracking?<svg aria-hidden="true"><use href="#i-chev"/></svg></summary>
+        <div class="ans"><p>One policy that follows any reference motion, not a fixed set of clips. Here the reference streams live from a VR headset.</p></div></details>
+      <details><summary>Does InstantGMT change what the policy learns?<svg aria-hidden="true"><use href="#i-chev"/></svg></summary>
+        <div class="ans"><p>No. Rewards, observations, network and robot interface are those of the deployed policy. <b>InstantGMT changes the optimizer and how the training loop runs.</b></p></div></details>
+      <details><summary>Is the comparison fair?<svg aria-hidden="true"><use href="#i-chev"/></svg></summary>
+        <div class="ans"><p>Same motion library, same GPU model, same evaluation. Details with the paper.</p></div></details>
+      <details><summary>Has it run on hardware?<svg aria-hidden="true"><use href="#i-chev"/></svg></summary>
+        <div class="ans"><p>Sim-to-sim with the robot's controller first; real-robot results with the paper.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- CITATION -->
+<section class="sec paper" id="cite">
+  <div class="wrap">
+    <p class="eyebrow rv">Paper</p>
+    <h2 class="rv">InstantGMT: General Motion Tracking for Humanoid Teleoperation in Hours on One GPU</h2>
+    <p class="authors rv">Huy-Quang-Dao</p>
+    <p class="affil rv">Built on SuperMimic (Liao et al., 2026), InstantTrack, mjlab and MuJoCo Warp.</p>
+    <div class="bib rv">
+      <div class="bib-head"><span>BibTeX</span><button class="copybtn" id="bibCopy" type="button">Copy</button></div>
+<pre id="bibText">@misc{instantgmt2026,
+  title  = {{InstantGMT}: General Motion Tracking for
+            Humanoid Teleoperation in Hours on One GPU},
+  author = {Huy-Quang-Dao},
+  year   = {2026},
+  note   = {Project page; paper in preparation}
+}</pre>
+    </div>
+    <p class="credit rv">Please also cite <a href="https://arxiv.org/abs/2610.28480">SuperMimic</a>, <a href="https://github.com/Huy-Quang-Dao/instantTrack">InstantTrack</a> and <a href="https://arxiv.org/abs/2601.22074">mjlab</a>. InstantGMT is independent work, not affiliated with or endorsed by the SuperMimic authors. Page design adapted from the <a href="https://supermimic.github.io">SuperMimic project page</a>, with layout ideas from <a href="https://sailab.ai/nablamimic/">∇Mimic</a>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>© 2026 The InstantGMT authors.</footer>
+</body>
+</html>
