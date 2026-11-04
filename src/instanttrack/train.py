@@ -138,6 +138,9 @@ parser.add_argument("--overlap_collect", action="store_true",
                          "snapshot of the policy, overlapping the world-model and policy updates; its transitions and normalizer "
                          "updates enter the buffer at the start of the next iteration (the acting policy is the one of the "
                          "iteration start; the updates see a step's data one iteration later)")
+parser.add_argument("--overlap_critic", action="store_true",
+                    help="systems, with --overlap_wm: the critic trains on a side CUDA stream concurrently with the next policy update, "
+                         "which bootstraps with a copy of the critic one update round older")
 parser.add_argument("--overlap_wm", action="store_true",
                     help="systems, with --cuda_graph: the world-model updates run on a side CUDA stream concurrently with the "
                          "policy update; imagination uses a copy of the world model taken at the start of the iteration (one "
@@ -371,6 +374,20 @@ if args.overlap_wm:
     WM_SIDE = torch.cuda.Stream()
 else:
     wm_imag = wm
+OCRIT = args.overlap_critic
+if OCRIT:
+    assert args.overlap_wm, "--overlap_critic needs --overlap_wm"
+    critic_imag = copy.deepcopy(critic)  # the critic the policy update bootstraps with (synchronized before each critic update)
+    for _p in critic_imag.parameters():
+        _p.requires_grad_(False)
+    CRIT_SYNC = (list(critic_imag.parameters()) + list(critic_imag.buffers()), [t.detach() for t in list(critic.parameters()) + list(critic.buffers())])
+    CRIT_SIDE = torch.cuda.Stream()
+    # the policy update writes its critic data to CB; it is snapshotted to CD before each critic update reads it
+    CB = {"X": torch.zeros(HZ + 1, args.pi_batch, CRITIC_IN, device=dev), "r": torch.zeros(HZ, args.pi_batch, device=dev),
+          "d": torch.zeros(HZ, args.pi_batch, device=dev)}  # fmt: skip
+    CD = {k: torch.zeros_like(v) for k, v in CB.items()}
+else:
+    critic_imag = critic
 wm_rollout = torch.compile(_wm_rollout)
 wm_err = torch.compile(_wm_err)
 imag_step = torch.compile(_imag_step)
@@ -534,7 +551,7 @@ def policy_update():
     f_all = flat(Fs)
     r, d = reward_term(S_all, f_all, flat(As), flat(Aps))
     r, d = r.view(HZ, B), d.view(HZ, B)
-    v_boot = critic((critic_input_c if args.compile_more else _critic_input)(S, f, xi_n, g))
+    v_boot = critic_imag((critic_input_c if args.compile_more else _critic_input)(S, f, xi_n, g))
     # --cuda_graph: survival products as a loop (cumprod's backward reads the host)
     J, c_t, c = actor_objective(r, d, v_boot, args.gamma, loop_cumprod=GRAPH)
     r_sum = (c_t * r).detach().sum(0)
@@ -582,6 +599,19 @@ def policy_update():
         g_c = torch.cat((g0.unsqueeze(0), torch.stack(Gs)), 0).flatten(0, 1)
         xi_c = xi_n.unsqueeze(0).expand(HZ + 1, -1, -1).flatten(0, 1)
         X = critic_input_c(S_c, f_c, xi_c, g_c).view(HZ + 1, B, -1)
+    if OCRIT:  # the critic trains in critic_update, on a side stream (main loop)
+        CB["X"].copy_(X), CB["r"].copy_(rews), CB["d"].copy_(dones)
+        return loss.detach(), v_loss.detach(), (r_sum / HZ / 0.1).mean(), gn.detach(), c.mean().detach()
+    v_loss = critic_fit(X, rews, dones)
+    return loss.detach(), v_loss.detach(), (r_sum / HZ / 0.1).mean(), gn.detach(), c.mean().detach()
+
+
+def critic_update():
+    return (critic_fit(CD["X"], CD["r"], CD["d"]).detach(),)
+
+
+def critic_fit(X, rews, dones):
+    B = X.shape[1]
     critic.norm.update(X)
     with torch.no_grad():
         targets = (gae_targets_c if args.fused_adam else _gae_targets)(critic(X), rews, dones)  # (H, B)
@@ -597,7 +627,7 @@ def policy_update():
             v_loss.backward()
             nn.utils.clip_grad_norm_(critic.parameters(), 1.0)
             opt_v.step()
-    return loss.detach(), v_loss.detach(), (r_sum / HZ / 0.1).mean(), gn.detach(), c.mean().detach()
+    return v_loss
 
 
 # ------------------------------------------------------------------------------------------------
@@ -798,8 +828,9 @@ if GRAPH:
     full = (lambda: True) if args.graph_early else (lambda: buffer.size == buffer.T)
     wm_update_g = Graphed(wm_update, full, own_stream=args.overlap_wm)
     policy_update_g = Graphed(policy_update, lambda: full() and int(pi_avg.n_averaged if pi_avg is not None else 1) > 0)
+    critic_update_g = Graphed(critic_update, lambda: full() and int(pi_avg.n_averaged if pi_avg is not None else 1) > 0, own_stream=True)
 else:
-    wm_update_g, policy_update_g = wm_update, policy_update
+    wm_update_g, policy_update_g, critic_update_g = wm_update, policy_update, critic_update
 
 
 EPROBE = args.eprobe_share > 0  # --eprobe_share; off: code path and random stream unchanged
@@ -1082,9 +1113,19 @@ for it in range(start_it, args.iterations):
         pl, vl, ir, gn, surv = policy_update_g()
         if GRAPH and pi_avg is not None and int(pi_avg.n_averaged) == n_avg0:
             pi_avg.n_averaged += 1  # ema_update (and a graph replay) does not advance the host-side counter
+        if OCRIT:  # previous critic update done -> snapshot it for the next policy update, then train on this one's data
+            torch.cuda.current_stream().wait_stream(CRIT_SIDE)
+            torch._foreach_copy_(*CRIT_SYNC)
+            for _k in CD:
+                CD[_k].copy_(CB[_k])
+            CRIT_SIDE.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(CRIT_SIDE):
+                (vl,) = critic_update_g()
         agg["pi"].append(pl), agg["v"].append(vl), agg["ir"].append(ir), agg["gn"].append(gn), agg["surv"].append(surv)
     if args.overlap_wm:
         torch.cuda.current_stream().wait_stream(WM_SIDE)
+    if OCRIT and (it + 1) % args.log_every == 0:
+        torch.cuda.current_stream().wait_stream(CRIT_SIDE)  # its loss is read below
     if (it + 1) % args.log_every == 0:
         mean = lambda x: float(sum(float(v) for v in x) / max(len(x), 1))  # noqa: E731
         agg_had_pi = len(agg["pi"]) > 0
@@ -1116,6 +1157,8 @@ for it in range(start_it, args.iterations):
     if timed:
         next_ckpt_s += args.ckpt_minutes * 60
     final_ck = it + 1 == args.iterations or out_of_time
+    if OCRIT and (final_ck or timed or (it + 1) % args.ckpt_every == 0):
+        torch.cuda.current_stream().wait_stream(CRIT_SIDE)  # the critic may be saved below
     if OVL and final_ck and OVL_PEND:
         ovl_ingest(stats)
     if args.ckpt_light and not final_ck and ((it + 1) % args.ckpt_every == 0 or timed):
