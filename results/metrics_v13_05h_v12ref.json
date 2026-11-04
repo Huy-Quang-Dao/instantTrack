@@ -1,0 +1,38 @@
+{
+ "logs/e102_v11_muon_graph_bge_pi1024_s0/last.pt": {
+  "norm_return": 0.8765152096748352,
+  "n_failed": 0,
+  "body_pos_cm": 3.184661104178363,
+  "body_ori_deg": 6.49163925704554,
+  "root_pos_cm": 53.27818946950805,
+  "joint_deg": 4.222106849013829,
+  "slip_cm_s": 6.547896753635399,
+  "ref_slip_cm_s": 10.175964112501537,
+  "contact_acc": 0.8199614599863977,
+  "pen_mm": 0.05604006486856811
+ },
+ "logs/e108_v11_muon_graph_bge_pi1024_s1/last.pt": {
+  "norm_return": 0.8753398060798645,
+  "n_failed": 0,
+  "body_pos_cm": 3.2711387101115865,
+  "body_ori_deg": 6.901216576504696,
+  "root_pos_cm": 68.23551207209249,
+  "joint_deg": 4.529536675762653,
+  "slip_cm_s": 6.6275217840591605,
+  "ref_slip_cm_s": 10.175964112501537,
+  "contact_acc": 0.8163806393108138,
+  "pen_mm": 0.05445790382719072
+ },
+ "logs/e109_v11_muon_graph_bge_pi1024_s2/last.pt": {
+  "norm_return": 0.8763145804405212,
+  "n_failed": 0,
+  "body_pos_cm": 3.26505120605233,
+  "body_ori_deg": 6.742454228967681,
+  "root_pos_cm": 55.598726904330086,
+  "joint_deg": 4.314283180227698,
+  "slip_cm_s": 6.682372656794112,
+  "ref_slip_cm_s": 10.175964112501537,
+  "contact_acc": 0.8194184992065291,
+  "pen_mm": 0.053262349511187405
+ }
+}

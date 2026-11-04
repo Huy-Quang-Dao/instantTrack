@@ -8,6 +8,78 @@ with the protocol in the README ("Time to target"); every number below can be re
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-04
+
+v1.3 incorporates the changes of [BlinkMimic](https://github.com/fuyichen0725/blinkmimic) (Fuyi Chen), a
+derivative of InstantTrack v1.2; we thank its author. Its notice is in `THIRD_PARTY_NOTICES.md`.
+
+### Results
+
+| | 1.2.0 | 1.3.0 |
+|---|---|---|
+| time to return ≥ 0.82 with 0/40 failed clips, held ×3 (5 seeds) | 0.12 h (0.10 / 0.10 / 0.10 / 0.10 / 0.18) | **≤ 0.05 h** (0.05 for all five: the first checkpoint) |
+| speed-up over SuperMimic + EMA (0.55 h) | 4.7× | **≥ 10.9×** |
+| iterations to target | 3270–3370 (seed 4: 6000) | 1895–1907 |
+| iterations per second | 8.74 | **10.32** |
+| return / failed clips after 0.15 h (mean) | 0.855 / 0.2 | **0.865 / 0** |
+| return after 0.5 h (mean of 5) | 0.875 | **0.880** |
+| fine protocol (checkpoint every 100 iterations, 4 replicas), held ×3, seeds 0–2 | — | 3.21 min (4.00 / 3.03 / 2.61) |
+| return after 1.5 h (seed 0) | 0.885 | **0.892** |
+| contact agreement with the reference (fixed 4.5 cm threshold), 1.5 h (seed 0) | **0.845** | 0.779 |
+| body orientation error, 1.5 h (°, seed 0) | **6.0** | 6.5 |
+
+v1.3 is faster and has a higher return, less foot slip and less root drift. It is less accurate in
+body orientation and joints, and its contact agreement is lower, most likely because `--ref_contact_fix` trains the
+contact reward against a calibrated reference contact that differs from the metric's fixed threshold.
+
+### Added
+- From BlinkMimic (all in the `instanttrack` preset): `--wm_structured` (semi-implicit world model),
+  `--wm_mirror` (left-right mirror augmentation of world-model batches), `--pi_opt muon --wm_opt muon`
+  (capturable Muon + Adam), `--pi_ref_skip` (action built on the next reference pose), `--bin_fix
+  --ref_contact_fix` (reset-statistics fixes), `--eprobe_*` (evaluation-guided resets from periodic
+  sweeps of the deployed policy), `--pi_batch 2048 --pi_lr_mult 4 --lr_decay_ret 0.75 --lr_decay_len
+  300 --lr_decay_by 1400` (smaller imagined batch with a decayed policy learning-rate boost),
+  `--graph_early --collect_graph --reset_masked --eprobe_graph --eprobe_async --ckpt_light` (CUDA graphs
+  for collection, resets and the probe sweep; background checkpoint writes).
+- `--static_compile` (systems): `torch.compile` with static shapes.
+- `--overlap_collect` (systems): the captured collection step runs on a side CUDA stream with a policy
+  snapshot, alongside the updates; its data enters the replay buffer at the next iteration.
+- `--overlap_wm` (systems): the world-model updates run on a second side stream, concurrently with the
+  policy update, which imagines with a copy of the world model taken at the iteration start. The
+  world-model graph is captured on its own stream (graphs captured on the shared capture stream share a
+  cuBLAS workspace and produced NaNs when replayed concurrently).
+- `--pi_anneal_len`, `--pi_anneal_min` (algorithm, schedule): after the policy learning-rate ramp of
+  `--lr_decay_ret`, a cosine anneal of the policy learning rate to ×0.1 over 3000 iterations.
+- Training aborts with exit code 3 when the world-model or policy loss becomes non-finite.
+- `scripts/fine_protocol.sh`, `tools/time_to_target.py`, `tools/reset_check.py`; `tools/eval_batch.py
+  --reps N` (every checkpoint evaluated N times, `eval_r<N>.csv`).
+- `results/runs/v13_*` (release runs) and `results/runs/v13dev_*` (all v1.3 development runs, including
+  the variants that were not adopted).
+- `results/runs/v13fine_s*` (release configuration on the fine protocol), `results/runs/v13_150h_s0`
+  (1.5 h run), `results/runs/v12_gif_s0` (v1.2.0 code, 3 minutes, for the video), `results/metrics_v13_*`
+  (pose / contact metrics of v1.3 and v1.2 at 0.5 h and 1.5 h).
+- `media/equal_time_3min.gif` (v1.2 and v1.3 after 3 minutes of training), now the README video.
+
+### Changed
+- The `instanttrack` preset is v1.3. The policy is 2048-1024-512-256 again (v1.2: 1024-512-256), and
+  there is no world-model-only warm-up.
+- `scripts/reproduce_main.sh`: InstantTrack 5 seeds × 0.5 h.
+
+### Removed
+- The v1.0–v1.2 flags that v1.3 does not use (`--ref_residual`, `--muon`, `--muon_on`,
+  `--batch_goal_enc`, `--torch_profile`, `--pi_simba`, `--wm_specnorm`, `--wm_ens`, `--pi_experts`,
+  `--wm_contact`, `--root_reward` and others), the presets `instanttrack_track`, `instanttrack_v1.0`,
+  `instanttrack_v1.1`, and `tools/bench.py`, `tools/trace_summary.py`. Check out tag `v1.2.0` for them.
+  v1.0–v1.2 checkpoints do not load into v1.3's networks.
+
+### Not adopted
+Prioritized imagination starts (by training failure rate or by sweep failures), extra imagination
+starts at sweep failure frames, failure-weighted world-model windows, a high-priority stream for the
+policy update, a shorter early imagination horizon, and hyperparameter changes (EMA 0.99, earlier
+learning-rate decay, earlier or more frequent sweeps, a larger sweep share, 2 critic epochs). Numbers in
+the README, "What did not help".
+
+
 ## [1.2.0] - 2026-11-01
 
 ### Results
@@ -172,7 +244,8 @@ First public release.
   1.50 h for SuperMimic on the same machine.
 - Logs of all 60+ runs, report generator, presets, reproduction script, project page.
 
-[Unreleased]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Huy-Quang-Dao/instantTrack/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Huy-Quang-Dao/instantTrack/releases/tag/v1.0.0

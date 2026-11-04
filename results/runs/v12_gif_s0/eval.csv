@@ -1,0 +1,4 @@
+iteration,train_wall_h,saved_at,eval_at,norm_return,norm_return_framew,n_failed,failed
+1788,0.050028,2026-11-04 20:19:41,2026-11-04 20:22:14,0.734750,0.750663,8,dance1_subject1|dance2_subject4|fallAndGetUp1_subject1|fallAndGetUp1_subject4|fallAndGetUp2_subject2|fallAndGetUp2_subject3|jumps1_subject2|walk3_subject1
+2000,0.056742,2026-11-04 20:20:05,2026-11-04 20:22:14,0.777845,0.787679,3,dance1_subject1|dance2_subject4|fallAndGetUp2_subject2
+2104,0.060006,2026-11-04 20:20:17,2026-11-04 20:22:14,0.796387,0.801993,3,dance1_subject1|dance2_subject4|walk3_subject4
