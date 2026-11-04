@@ -207,6 +207,14 @@ class DomainRandomizer:
             xi[:, self.layout.slices["qd_tau_scale"]] = 1.0
 
     # ------------------------------------------------------------------ per episode
+    def reset_masked(self, xi: torch.Tensor, mask: torch.Tensor):
+        """reset() of the worlds where mask is true (joint offsets only; TrackingSim.reset_masked checks the config)."""
+        if self.eval_mode:
+            return
+        sl = self.layout.slices["joint_offset"]
+        new = (2 * torch.rand(xi.shape[0], self.J, device=xi.device) - 1) * self.joint_offset_half
+        xi[:, sl] = torch.where(mask.unsqueeze(-1), new, xi[:, sl])
+
     def reset(self, xi: torch.Tensor, env_ids: torch.Tensor):
         if self.eval_mode:
             return

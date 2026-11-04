@@ -17,6 +17,9 @@ CONTROL_DT = 0.02
 BIN_FRAMES = 50  # 1 s bins for return-based reset sampling
 
 
+GOAL_Q_OFFSET = 15  # index of the joint positions q(f+1) in the goal vector (first future frame: dp 3, rot 6, v 3, w 3, then q)
+
+
 class MotionLib:
     def __init__(self, files: list[str], kin: Kinematics, device: str, load_motion: Callable[[str], MotionArrays]):
         self.device = device
@@ -91,6 +94,18 @@ class MotionLib:
     def from_dir(path: str, robot: RobotSpec, kin: Kinematics, device: str) -> MotionLib:
         files = sorted(glob.glob(os.path.join(path, robot.motion_glob)))
         return MotionLib(files, kin, device, robot.load_motion)
+
+    def set_ref_contact(self, feet: list[int], margin: float = 0.015, vmax: float = 0.5, q: float = 0.05) -> None:
+        """Speed-branch reference foot contact (num_frames, len(feet)): height below the clip's own floor (the
+        q-quantile of that foot's height in the clip) + margin, and horizontal speed below vmax. A fixed 4.5 cm
+        threshold misses most stance frames of clips whose retargeted feet sit ~1 cm higher (LAFAN1 subject1:
+        floor ~4.5 cm against ~3.5 cm for the others)."""
+        z, vh = self.body_p[:, feet, 2], self.body_v[:, feet, :2].norm(dim=-1)
+        floor = torch.zeros_like(z)
+        for c in range(len(self.names)):
+            s = self.clip_id == c
+            floor[s] = z[s].quantile(q, dim=0)
+        self.ref_contact = ((z < floor + margin) & (vh < vmax)).float()
 
     def goal_dim(self, K: int) -> int:
         return K * (3 + 6 + 3 + 3 + 2 * self.q.shape[-1])

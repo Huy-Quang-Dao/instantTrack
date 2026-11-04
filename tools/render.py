@@ -1,4 +1,4 @@
-"""Render recorded evaluation trajectories (supermimic/evaluate.py --record) with MuJoCo (EGL).
+"""Render recorded evaluation trajectories (python -m instanttrack.evaluate --record) with MuJoCo (EGL).
 
 The simulated robot is drawn solid; the reference motion is a translucent ghost.
 Usage: MUJOCO_GL=egl python tools/render.py traj.npz out.mp4 --robot g1 --clips dance1_subject1 jumps1_subject1 --seconds 12
@@ -17,13 +17,14 @@ from PIL import Image, ImageDraw, ImageFont
 from instanttrack.robot import RobotSpec, get_robot
 
 
-def two_robot_xml(robot: RobotSpec, clean: bool = False, ghost_alpha: float = 0.25) -> str:
+def two_robot_xml(robot: RobotSpec, clean: bool = False, ghost_alpha: float = 0.25, white: bool = False) -> str:
     xml = open(robot.mjcf_path).read()
     mjcf_dir = os.path.dirname(os.path.abspath(robot.mjcf_path))
     xml = re.sub(r'meshdir="([^"]*)"', lambda m: 'meshdir="' + os.path.join(mjcf_dir, m.group(1)) + '/"', xml)
     body = xml[xml.index(f'<body name="{robot.tracked_bodies[0]}"') : xml.index("</worldbody>")]
     ghost = re.sub(r' name="([^"]+)"', r' name="ref_\1"', body)
-    ghost = re.sub(r'rgba="[^"]*"', f'rgba="0.35 0.65 1.0 {ghost_alpha}"', ghost)
+    ghost_rgb = "0.12 0.47 0.98" if white else "0.35 0.65 1.0"
+    ghost = re.sub(r'rgba="[^"]*"', f'rgba="{ghost_rgb} {ghost_alpha}"', ghost)
     ghost = re.sub(r' (contype|conaffinity|group)="[^"]*"', "", ghost)
     ghost = ghost.replace("<geom ", '<geom contype="0" conaffinity="0" group="1" ')
     scene = """
@@ -40,8 +41,13 @@ def two_robot_xml(robot: RobotSpec, clean: bool = False, ghost_alpha: float = 0.
         assets = assets.replace('rgb1="0.92 0.93 0.94" rgb2="0.80 0.82 0.85"', 'rgb1="0.965 0.965 0.972" rgb2="0.925 0.925 0.935"')
         assets = assets.replace('reflectance="0.1"', 'reflectance="0.03" emission="0.75"')
         assets = assets.replace('rgb1="0.95 0.96 0.98" rgb2="0.75 0.8 0.88"', 'rgb1="1 1 1" rgb2="0.96 0.96 0.97"')
+    if white:  # paper style: white background, no floor grid, only the robots' soft shadows
+        assets = """
+    <texture name="grid" type="2d" builtin="flat" rgb1="1 1 1" rgb2="1 1 1" width="64" height="64"/>
+    <material name="grid" texture="grid" reflectance="0" emission="0.6"/>
+    <texture name="sky" type="skybox" builtin="flat" rgb1="1 1 1" rgb2="1 1 1" width="64" height="64"/>
+    """
     xml = xml.replace("<asset>", "<asset>" + assets, 1)
-    xml = xml.replace("<mujoco", '<mujoco', 1)
     if "<visual>" not in xml:
         xml = xml.replace("<asset>", '<visual><global offwidth="1920" offheight="1080"/><quality shadowsize="4096"/></visual>\n  <asset>', 1)
     return xml
@@ -60,6 +66,8 @@ def main():
     ap.add_argument("--height", type=int, default=540)
     ap.add_argument("--title", type=str, default="")
     ap.add_argument("--clean", action="store_true", help="page style: light background, no text overlay")
+    ap.add_argument("--white", action="store_true", help="paper style: white background, floor not visible, saturated blue "
+                    "reference, no text or badge (captions are added when composing panels)")
     ap.add_argument("--ghost_alpha", type=float, default=0.25, help="opacity of the reference ghost (0 hides it)")
     ap.add_argument("--distance", type=float, default=3.6)
     ap.add_argument("--azimuth", type=float, default=135.0)
@@ -72,9 +80,11 @@ def main():
     robot = get_robot(a.robot)
     nq = 7 + robot.num_joints
     lookat_z = float(np.median(d["ref_root_p"][:, 2]))
-    model = mujoco.MjModel.from_xml_string(two_robot_xml(robot, a.clean, a.ghost_alpha))
+    model = mujoco.MjModel.from_xml_string(two_robot_xml(robot, a.clean or a.white, a.ghost_alpha, a.white))
     model.vis.headlight.ambient[:] = 0.45
     model.vis.headlight.diffuse[:] = 0.55
+    if a.white:  # no haze band at the horizon
+        model.vis.map.haze = 0.0
     data = mujoco.MjData(model)
     renderer = mujoco.Renderer(model, a.height, a.width)
     cam = mujoco.MjvCamera()
@@ -92,12 +102,13 @@ def main():
         T = d["root_p"].shape[0]
         alive = d["alive"][:, c]
         t0 = int(a.start * 50)
-        t1 = min(T, t0 + int(a.seconds * 50))
-        fell_at = None
+        t1 = t0 + int(a.seconds * 50)
+        # the recording ends once every clip has ended: after its end a clip shows its last state, the clock runs on
+        first_end = int(np.argmin(alive)) if not alive.all() else None
         for t in range(t0, t1, stride):
-            if not alive[t] and fell_at is None:
-                fell_at = t
-            tt = t if alive[t] else (fell_at if fell_at is not None else t)
+            ended = first_end is not None and t >= first_end
+            fell_at = first_end if ended else None
+            tt = first_end if ended else min(t, T - 1)
             f = int(d["f"][tt, c])
             data.qpos[0:3] = d["root_p"][tt, c]
             data.qpos[3:7] = d["root_quat"][tt, c]
@@ -111,8 +122,8 @@ def main():
             cam.lookat[:] = [data.qpos[0], data.qpos[1], lookat_z]
             renderer.update_scene(data, camera=cam)
             img = Image.fromarray(renderer.render())
-            if a.clean:  # no text; a small badge once the clip has terminated
-                if fell_at is not None:
+            if a.clean or a.white:  # no text; with --clean a small badge once the clip has terminated
+                if fell_at is not None and not a.white:
                     draw = ImageDraw.Draw(img)
                     s = max(1, a.height // 540)
                     bf = ImageFont.load_default(size=20 * s) if hasattr(ImageFont, "load_default") else None
@@ -122,9 +133,11 @@ def main():
                 ff.stdin.write(np.asarray(img).tobytes())
                 continue
             draw = ImageDraw.Draw(img)
-            label = f"{a.title}  {clip}  t={(f - int(d['clip_start'][c])) * 0.02:5.1f}s"
+            # the clock keeps running after a termination (the robot is frozen at its last state), so videos of
+            # several policies stay in sync
+            label = f"{a.title}  {clip}  t={t * 0.02:5.1f}s"
             if fell_at is not None:
-                label += "  [terminated]"
+                label += f"  [terminated at {fell_at * 0.02:.1f}s]"
             for xy, txt in (((16, 12), label), ((16, a.height - 38), f"solid: simulated {robot.name} policy (mjlab + MuJoCo-Warp)   blue ghost: reference")):
                 bb = draw.textbbox(xy, txt, font=font)
                 draw.rectangle((bb[0] - 6, bb[1] - 4, bb[2] + 6, bb[3] + 4), fill=(255, 255, 255))

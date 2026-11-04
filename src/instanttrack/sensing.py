@@ -67,7 +67,7 @@ class SensingCfg:
     noise_ang_vel: float = 0.2
     noise_gravity: float = 0.05
     noise_ref_ori: float = 0.05
-    """Uniform observation-noise half-widths (defaults: paper Table A.1)."""
+    """Uniform observation-noise half-widths (defaults: SuperMimic paper Table A.1)."""
     delay_hold_prob: float | None = None
     """None: no observation delay. Otherwise a 0/1 policy-step lag per sensor group, kept with this
     probability each step and resampled otherwise."""

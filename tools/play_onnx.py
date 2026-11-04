@@ -4,7 +4,7 @@ The observation is assembled from raw robot state and the ONNX outputs only (no 
 code), which is the loop a deployment controller implements. A robot with a sensing chain
 (RobotSpec.sensing: IMU estimate, joint-velocity filter) takes the simulator's chain instead, which
 stands in for the robot's own estimator. The motion plays once from its first frame with no
-randomization or noise, as in supermimic/evaluate.py.
+randomization or noise, as in instanttrack.evaluate.
 
 Usage: python tools/play_onnx.py logs/<run>/dance1_subject2.onnx --robot g1 \
            --motion data/lafan1_g1/dance1_subject2.csv

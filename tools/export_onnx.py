@@ -1,7 +1,7 @@
 """Export a policy checkpoint to ONNX with one reference motion baked in (BeyondMimic-style deployment layout).
 
 The motion goes through the training preprocessing (resampled to 50 Hz, finite-difference velocities,
-goal features of the next K frames), so any npz the robot's loader reads can be baked in.
+goal features of the next K frames), so any motion file (*.csv) the robot's loader reads can be baked in.
 
 Inputs:  obs_history (1, H, O)  raw observations, oldest first, layout of instanttrack.mdp.MDP.obs:
                                 q - q0, qd, root angular velocity (root frame), projected gravity,
@@ -14,7 +14,7 @@ Outputs: actions (1, J)         joint targets are q0 + action_scale * actions
                                 observation's relative orientation is taken against
 PD gains, default pose, action scale and the observation layout are in the ONNX metadata.
 
-Usage: python tools/export_onnx.py --robot g1 --ckpt logs/<run>/ckpt_017324.pt \
+Usage: python tools/export_onnx.py --robot g1 --ckpt logs/<run>/ckpt_003500.pt \
            --motion data/lafan1_g1/dance1_subject2.csv --out logs/<run>/dance1_subject2.onnx
 """
 
@@ -30,7 +30,7 @@ import instanttrack.networks as networks
 from instanttrack.kinematics import Kinematics
 from instanttrack.mdp import obs_dim
 from instanttrack.motion import CONTROL_DT, MotionLib
-from instanttrack.networks import Policy
+from instanttrack.networks import Policy, policy_kwargs
 from instanttrack.robot import RobotSpec, get_robot
 from instanttrack.rotations import mat_to_quat
 
@@ -81,8 +81,9 @@ def main():
     K, Hh = ck["args"]["goal_frames"], ck["args"]["hist"]
     motion = MotionLib([a.motion], Kinematics(robot, dev), dev, robot.load_motion)
     networks.AMP_DTYPE = None  # fp32 graph (training ran the MLPs under bf16 autocast)
-    pi = Policy(obs_dim(robot.num_joints), motion.goal_dim(K), robot.num_joints, hist=Hh,
-                ref_residual=ck["args"].get("ref_residual", 0.0), experts=ck["args"].get("pi_experts", 1), simba_arch=ck["args"].get("pi_simba", ""))
+    widths = lambda key: tuple(int(x) for x in ck["args"].get(key, "2048,1024,512,256").split(","))  # noqa: E731
+    pi = Policy(obs_dim(robot.num_joints), motion.goal_dim(K), robot.num_joints, hist=Hh, enc_hidden=widths("enc_hidden"),
+                dec_hidden=widths("dec_hidden"), **policy_kwargs(ck["args"], robot))  # fmt: skip
     pi.load_state_dict(ck["pi"])
     model = PolicyWithMotion(pi, motion, K).eval()
 

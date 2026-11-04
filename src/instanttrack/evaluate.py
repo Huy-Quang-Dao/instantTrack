@@ -1,4 +1,4 @@
-"""Checkpoint evaluation (paper Appendix F.1) on all motions of the library.
+"""Checkpoint evaluation (SuperMimic paper Appendix F.1) on all motions of the library.
 
 Each motion plays once from its first frame with friction 1.0, no domain randomization, no
 observation or action noise. A motion fails if the rollout triggers the training termination.
@@ -47,7 +47,7 @@ from instanttrack.env import TrackingSim, make_sim
 from instanttrack.kinematics import Kinematics
 from instanttrack.mdp import MAX_STEP_REWARD, MDP
 from instanttrack.motion import MotionLib
-from instanttrack.networks import Policy
+from instanttrack.networks import Policy, policy_kwargs
 from instanttrack.robot import RobotSpec, get_robot
 
 
@@ -96,7 +96,7 @@ def evaluate(env: TrackingSim, ck: dict, record: str | None = None) -> dict:
     networks.AMP_DTYPE = torch.bfloat16 if a_.get("amp", "none") == "bf16" else None
     widths = lambda key, default: tuple(int(x) for x in a_.get(key, default).split(","))  # noqa: E731
     pi = Policy(mdp.obs_dim, motion.goal_dim(K), robot.num_joints, hist=Hh, enc_hidden=widths("enc_hidden", "2048,1024,512,256"),
-                dec_hidden=widths("dec_hidden", "2048,1024,512,256"), ref_residual=a_.get("ref_residual", 0.0), experts=a_.get("pi_experts", 1), simba_arch=a_.get("pi_simba", "")).to(dev)  # fmt: skip
+                dec_hidden=widths("dec_hidden", "2048,1024,512,256"), **policy_kwargs(a_, robot)).to(dev)  # fmt: skip
     pi.load_state_dict(ck["pi"])
     pi.eval()
     ids = torch.arange(N, device=dev)
@@ -160,9 +160,8 @@ if os.path.exists(out_csv):
 else:
     open(out_csv, "w").write("iteration,train_wall_h,saved_at,eval_at,norm_return,norm_return_framew,n_failed,failed\n")
 while True:
-    ckpts = sorted(glob.glob(os.path.join(args.run_dir, "ckpt_*.pt")))
+    ckpts = sorted(glob.glob(os.path.join(args.run_dir, "ckpt_*.pt")))[:: args.every]
     todo = [c for c in ckpts if int(os.path.basename(c)[5:11]) not in done]
-    todo = [c for c in todo if (int(os.path.basename(c)[5:11]) // 2000) % args.every == 0]
     for c in todo:
         it = int(os.path.basename(c)[5:11])
         ck = torch.load(c, map_location=dev)

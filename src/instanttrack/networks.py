@@ -1,4 +1,4 @@
-"""World model, policy (motion encoder + shared decoder), and critic (paper Table A.4)."""
+"""World model, policy (motion encoder + shared decoder), and critic (SuperMimic paper Table A.4)."""
 
 from __future__ import annotations
 
@@ -19,25 +19,6 @@ def mlp(inp: int, hidden: list[int], out: int, act=nn.ELU, layer_norm: bool = Fa
         d = h
     layers.append(nn.Linear(d, out))
     return nn.Sequential(*layers)
-
-
-class SimBaBlock(nn.Module):
-    """Pre-LayerNorm inverted-bottleneck residual block (SimBa, Lee et al., ICLR 2025)."""
-
-    def __init__(self, h: int, expand: int = 4):
-        super().__init__()
-        self.ln = nn.LayerNorm(h)
-        self.fc1, self.fc2 = nn.Linear(h, expand * h), nn.Linear(expand * h, h)
-        nn.init.kaiming_normal_(self.fc1.weight, nonlinearity="relu")
-        nn.init.xavier_normal_(self.fc2.weight)
-
-    def forward(self, x):
-        return x + self.fc2(torch.relu(self.fc1(self.ln(x))))
-
-
-def simba(inp: int, h: int, blocks: int, out: int) -> nn.Sequential:
-    """SimBa stack: linear embedding, residual blocks, post-LayerNorm, linear head."""
-    return nn.Sequential(nn.Linear(inp, h), *[SimBaBlock(h) for _ in range(blocks)], nn.LayerNorm(h), nn.Linear(h, out))
 
 
 class RunningNorm(nn.Module):
@@ -100,39 +81,62 @@ class WorldModel(nn.Module):
     """
 
     def __init__(self, num_j: int, xi_dim: int, use_prev_action: bool = False, hidden=(2048, 2048, 2048),
-                 contact_modes: bool = False, ens_heads: int = 1):  # fmt: skip
+                 contact_modes: bool = False, structured: bool = False, dt: float = 0.02):  # fmt: skip
         """``contact_modes`` (InstantTrack): the last layer predicts the two feet's next-step ground contact
         and one increment head per contact mode (flight, left, right, double support); the increment is the
         mixture of the heads weighted by the predicted mode probabilities, so each head stays smooth within
-        its mode instead of one MLP smoothing across touch-down and lift-off.
-
-        ``ens_heads`` K > 1 (InstantTrack): a shared trunk with K increment heads; the model predicts their
-        mean, and their spread (variance in normalized increment units) measures epistemic uncertainty."""
+        its mode instead of one MLP smoothing across touch-down and lift-off."""
         super().__init__()
         self.num_j = num_j
         self.use_prev_action = use_prev_action
         self.contact_modes = contact_modes
-        self.ens_heads = ens_heads
-        assert not (contact_modes and ens_heads > 1)
+        # ``structured`` = semi-implicit integration (positions follow the predicted velocities,
+        # the net predicts velocity increments plus small position corrections)
+        self.structured, self.dt = structured, dt
         self.in_dim = inv_dim(num_j) + num_j * (2 if use_prev_action else 1) + xi_dim
         self.out_dim = 3 + 3 + 3 + 3 + num_j + num_j
-        n_out = 4 * self.out_dim + 2 if contact_modes else ens_heads * self.out_dim
+        n_out = 4 * self.out_dim + 2 if contact_modes else self.out_dim
         self.net = mlp(self.in_dim, list(hidden), n_out, act=nn.SiLU, layer_norm=True)
         nn.init.zeros_(self.net[-1].weight)
         nn.init.zeros_(self.net[-1].bias)
-        if ens_heads > 1:  # distinct heads (the mean still starts near zero)
-            nn.init.normal_(self.net[-1].weight, std=1e-2)
         self.in_norm = RunningNorm(self.in_dim)
         self.out_norm = RunningNorm(self.out_dim, eps=1e-4)
+        # scale of the plain frame-local increments, used to normalize the training loss (equal to out_norm
+        # unless ``structured`` changes what the network outputs)
+        self.inc_norm = RunningNorm(self.out_dim, eps=1e-4)
 
     def inputs(self, S, a, a_prev, xi_n):
         if self.use_prev_action:
             return torch.cat((invariant_features(S), a, a_prev, xi_n), -1)
         return torch.cat((invariant_features(S), a, xi_n), -1)
 
+    # weight of the new velocity in the position drift: n semi-implicit substeps with a linearly changing
+    # velocity give sum_k k/n / n = (n + 1) / (2 n); n = 4 substeps -> 0.625 (measured residual std of the
+    # joint-position increment: 16 % with 0.5, 11 % with 0.625, 17 % with 1.0)
+    DRIFT_W = 0.625
+
+    def _drift(self, S, v1, w1, qd1):
+        """Semi-implicit position update implied by the old and new velocities, in the frames of the
+        increments: yaw frame for the root position, body frame for the rotation vector."""
+        p, R, v, w, q, qd = S
+        H = yaw_mat(R)
+        a, b = self.dt * (1 - self.DRIFT_W), self.dt * self.DRIFT_W
+        return (mv3(H.transpose(-1, -2), a * v + b * v1), mv3(R.transpose(-1, -2), a * w + b * w1), a * qd + b * qd1)
+
+    def targets(self, S, S1):
+        """Regression targets of the network: the frame-local increments, or with ``structured`` the
+        velocity increments plus the position corrections on top of the semi-implicit drift."""
+        inc = self.increments(S, S1)
+        if not self.structured:
+            return inc
+        J = self.num_j
+        dp, dth, dv, dw, dq, dqd = inc.split((3, 3, 3, 3, J, J), -1)
+        gp, gth, gq = self._drift(S, S1[2], S1[3], S1[5])
+        return torch.cat((dp - gp, dth - gth, dv, dw, dq - gq, dqd), -1)
+
     @staticmethod
-    def targets(S, S1):
-        """Frame-local increments from S to S1 (the regression targets)."""
+    def increments(S, S1):
+        """Frame-local increments from S to S1."""
         from .rotations import so3_log
 
         p, R, v, w, q, qd = S
@@ -156,40 +160,30 @@ class WorldModel(nn.Module):
 
     def step_c(self, S, a, a_prev, xi_n):
         """Next state and next-step foot-contact logits (B, 2), or None without ``contact_modes``."""
-        S1, logits, _ = self.step_full(S, a, a_prev, xi_n)
-        return S1, logits
-
-    def step_full(self, S, a, a_prev, xi_n):
-        """Next state, contact logits (or None) and the per-head normalized increments (B, K, D) (or None)."""
-        y = run_mlp(self.net, self.in_norm(self.inputs(S, a, a_prev, xi_n)))
-        heads = None
-        if self.ens_heads > 1:
-            heads = y.unflatten(-1, (self.ens_heads, self.out_dim))
-            y = heads.mean(-2)
-        S1, logits = self.integrate(S, y)
-        return S1, logits, heads
-
-    @staticmethod
-    def disagreement(heads):
-        """Mean over dimensions of the across-head variance, in normalized increment units: (B,)."""
-        return heads.var(-2, unbiased=False).mean(-1)
-
-    def integrate(self, S, y):
         p, R, v, w, q, qd = S
+        y = run_mlp(self.net, self.in_norm(self.inputs(S, a, a_prev, xi_n)))
         logits = None
         if self.contact_modes:
             logits = y[..., -2:]
             cl, cr = torch.sigmoid(logits).unbind(-1)
             mode_w = torch.stack(((1 - cl) * (1 - cr), cl * (1 - cr), (1 - cl) * cr, cl * cr), -1)
             y = (y[..., :-2].unflatten(-1, (4, self.out_dim)) * mode_w.unsqueeze(-1)).sum(-2)
-        d = y * self.out_norm.std() + self.out_norm.mean
+        return self.integrate(S, y * self.out_norm.std() + self.out_norm.mean), logits
+
+    def integrate(self, S, d):
+        """Next state from the denormalized network output ``d`` (the layout of ``targets``)."""
+        p, R, v, w, q, qd = S
         H = yaw_mat(R)
         dp, dth, dv, dw, dq, dqd = d.split((3, 3, 3, 3, self.num_j, self.num_j), -1)
-        p1 = p + mv3(H, dp)
-        R1 = mm3(R, so3_exp(dth))
         v1 = v + mv3(R, dv)
         w1 = w + mv3(R, dw)
-        return (p1, R1, v1, w1, q + dq, qd + dqd), logits
+        qd1 = qd + dqd
+        if self.structured:
+            gp, gth, gq = self._drift(S, v1, w1, qd1)
+            dp, dth, dq = dp + gp, dth + gth, dq + gq
+        p1 = p + mv3(H, dp)
+        R1 = mm3(R, so3_exp(dth))
+        return (p1, R1, v1, w1, q + dq, qd1)
 
     @staticmethod
     def state_error(S_hat, S):
@@ -216,68 +210,82 @@ class WorldModel(nn.Module):
 class Policy(nn.Module):
     """a = dec(enc(g), o_{t-9:t}); deterministic, latent z in R^32 bounded by tanh.
 
-    ``ref_residual`` > 0 (InstantTrack): the decoder outputs a correction on top of the next reference
-    joint pose read from the goal, a = dec(...) + beta * (q_ref(f+1) - q_default) / alpha, so the
-    untrained policy already commands the reference. ``q_default`` and ``alpha`` are buffers (set by
-    ``set_reference_action``, then saved in the state dict)."""
+    ``ref_skip`` = (offset, q0, alpha) (--pi_ref_skip): reference-action skip connection,
+    a = (q_ref(f+1) - q0) / alpha + dec(...), with q_ref(f+1) read from the raw (unnormalized) goal vector at
+    ``offset``; the network only learns the correction to tracking the reference with the PD controller."""
 
     def __init__(self, obs_dim: int, goal_dim: int, act_dim: int, hist: int = 10, z_dim: int = 32,
-                 enc_hidden=(2048, 1024, 512, 256), dec_hidden=(2048, 1024, 512, 256), ref_residual: float = 0.0,
-                 experts: int = 1, simba_arch: str = ""):  # fmt: skip
-        """``experts`` E > 1 (InstantTrack): E decoders mixed by a softmax gate on the motion latent z, so
-        dissimilar motions (walking, dancing, getting up) need not share one decoder.
-
-        ``simba_arch`` "<width>x<blocks>" (InstantTrack): encoder and decoder are SimBa residual stacks instead of
-        plain MLPs (the observation / goal running normalizers stay as in SimBa)."""
+                 enc_hidden=(2048, 1024, 512, 256), dec_hidden=(2048, 1024, 512, 256), ref_skip=None):  # fmt: skip
         super().__init__()
         self.hist = hist
-        self.ref_residual = ref_residual
-        self.experts = experts
-        if ref_residual > 0:
-            self.register_buffer("q_default", torch.zeros(act_dim))
-            self.register_buffer("alpha", torch.ones(act_dim))
-        if simba_arch:
-            sw, sb = (int(x) for x in simba_arch.split("x"))
-            self.enc = simba(goal_dim, sw, sb, z_dim)
-            self.dec = simba(z_dim + obs_dim * hist, sw, sb, act_dim)
-        else:
-            self.enc = mlp(goal_dim, list(enc_hidden), z_dim)
-            self.dec = mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim)
-        if experts > 1:
-            assert not simba_arch
-            self.decs = nn.ModuleList([self.dec] + [mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim) for _ in range(experts - 1)])
-            self.gate = nn.Linear(z_dim, experts)
-            nn.init.zeros_(self.gate.weight), nn.init.zeros_(self.gate.bias)
+        self.ref_off = None
+        if ref_skip is not None:
+            self.ref_off = ref_skip[0]
+            self.register_buffer("ref_q0", torch.tensor(ref_skip[1], dtype=torch.float32))
+            self.register_buffer("ref_alpha", torch.tensor(ref_skip[2], dtype=torch.float32))
+        self.enc = mlp(goal_dim, list(enc_hidden), z_dim)
+        self.dec = mlp(z_dim + obs_dim * hist, list(dec_hidden), act_dim)
         with torch.no_grad():
-            for d in self.decs if experts > 1 else [self.dec]:
-                d[-1].weight.mul_(0.01)
-                d[-1].bias.zero_()
+            self.dec[-1].weight.mul_(0.01)
+            self.dec[-1].bias.zero_()
         self.obs_norm = RunningNorm(obs_dim)
         self.goal_norm = RunningNorm(goal_dim)
 
     def forward(self, obs_hist: torch.Tensor, goal: torch.Tensor, z: torch.Tensor | None = None) -> torch.Tensor:
-        """obs_hist: (B, hist, obs_dim) noisy observations, newest last. ``z`` (optional) is ``encode(goal)``
-        computed beforehand, e.g. for a whole imagined horizon at once."""
+        """obs_hist: (B, hist, obs_dim) noisy observations, newest last. ``z`` (optional) is
+        ``encode(goal)`` computed beforehand."""
+        o = self.obs_norm(obs_hist).flatten(-2)
         if z is None:
             z = self.encode(goal)
-        o = self.obs_norm(obs_hist).flatten(-2)
-        x = torch.cat((z, o), -1)
-        if self.experts > 1:
-            gw = torch.softmax(self.gate(z), -1)
-            a = sum(gw[..., e : e + 1] * run_mlp(d, x) for e, d in enumerate(self.decs))
-        else:
-            a = run_mlp(self.dec, x)
-        if self.ref_residual > 0:  # goal frame 1 = [dp 3, rot 6, v 3, w 3, q J, qd J]
-            q_next = goal[..., 15 : 15 + a.shape[-1]]
-            a = a + self.ref_residual * (q_next - self.q_default) / self.alpha
+        a = run_mlp(self.dec, torch.cat((z, o), -1))
+        if self.ref_off is not None:
+            q_ref = goal[..., self.ref_off : self.ref_off + a.shape[-1]]
+            a = a + (q_ref - self.ref_q0) / self.ref_alpha
         return a
 
     def encode(self, goal: torch.Tensor) -> torch.Tensor:
-        """Motion latent z from goal features (reference only, independent of the robot state)."""
+        """Motion latent z from the goal features (reference only, independent of the robot state)."""
         return torch.tanh(run_mlp(self.enc, self.goal_norm(goal)))
 
-    def set_reference_action(self, q_default: torch.Tensor, alpha: torch.Tensor):
-        self.q_default.copy_(q_default), self.alpha.copy_(alpha)
+
+# Switches of the development code that this release does not have, with their "off" value. Run arguments (args.json,
+# the "args" of a checkpoint) of that code still carry them; at the off value they are ignored, any other value
+# describes a run that this code cannot rebuild or continue.
+PRUNED_OFF = {
+    "actor_lam": 1.0, "grad_decay": 1.0, "anchored": False, "demo_replay": False,
+    "imag_action_noise": 0.0, "wm_prio": 0.0, "imag_prio": 0.0, "critic_alive": False, "critic_prior": False,
+    "critic_grad": 0.0, "critic_ema": 0.0, "lookahead_k": 0, "wm_batches_early": 0, "wm_foot_weight": 0.0,
+    "bc_sharp_weight": 0.0, "pi_grad_batch": 0, "no_critic": False, "wm_imag_ema": 0.0, "anchor_coef": 0.0,
+    "boot_coef": 1.0, "grad_clip_step": 0.0, "det_frac": 0.0, "wm_load": None, "wm_freeze": False, "wm_ready": 0.0,
+    # these also change the networks (inputs or architecture)
+    "wm_pd": False, "pi_arch": "mlp", "pi_fourier": None, "pi_goal_feet": False, "wm_contact": 0.0,
+}  # fmt: skip
+PRUNED_NET = ("wm_pd", "pi_arch", "pi_fourier", "pi_goal_feet", "wm_contact")
+
+
+def check_pruned(a_: dict, nets_only: bool = False, what: str = "this run") -> None:
+    """Raise if the run arguments ``a_`` use a removed switch. ``nets_only``: only the switches that change the
+    networks (enough to rebuild and evaluate a policy / world model); otherwise also every removed training switch
+    (for tools that recompute the training objective)."""
+    keys = PRUNED_NET if nets_only else PRUNED_OFF
+    bad = {k: a_[k] for k in keys if k in a_ and a_[k] != PRUNED_OFF[k] and not (PRUNED_OFF[k] is None and not a_[k])}
+    if bad:
+        raise ValueError(f"{what} uses switches that this code does not have: {bad}")
+
+
+def policy_kwargs(a_: dict, robot) -> dict:
+    """Policy keyword arguments of a run with the training arguments ``a_``."""
+    check_pruned(a_, nets_only=True)
+    return {"ref_skip": policy_ref_skip(a_, robot)}
+
+
+def policy_ref_skip(a_: dict, robot):
+    """Policy(ref_skip=...) argument of a run with the training arguments ``a_`` (None without --pi_ref_skip)."""
+    if not a_.get("pi_ref_skip", False):
+        return None
+    from .motion import GOAL_Q_OFFSET
+
+    return (GOAL_Q_OFFSET, robot.default_joint_pos_list(), robot.action_scale_list())
 
 
 class Critic(nn.Module):
