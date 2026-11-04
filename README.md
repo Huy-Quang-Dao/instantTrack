@@ -53,7 +53,8 @@ blue ghost: reference motion. More videos in `media/` of the [`instanttrack-page
 
 0.05 h is the first checkpoint of the 3-minute protocol, so v1.3's time is at most 0.05 h. With a
 checkpoint every 100 iterations and 4 evaluation replicas per checkpoint, v1.3 holds the target from
-3.2 minutes on average (4.00 / 3.03 / 2.61 min on seeds 0–2; see [What's new in v1.3](#whats-new-in-v13)).
+3.2 minutes on average (4.00 / 3.03 / 2.61 min on seeds 0–2), and from 2.74 minutes without the policy
+learning-rate annealing (`--pi_anneal_len 0`; see [What's new in v1.3](#whats-new-in-v13)).
 
 All numbers come from runs in this repository. Each run's evaluation log and training log are in
 [`results/runs/`](results/runs/), and every table and figure is regenerated from them by
@@ -141,11 +142,16 @@ any replica), the release configuration holds the target (×3) from 4.00 / 3.03 
 
 | | held ×3 (min) | it/s |
 |---|---|---|
-| starting point: v1.2 lineage with the inherited changes | 3.68 / 2.99 / 4.37 (3.68) | 8.92 |
+| starting point: v1.2 lineage with the inherited changes (`v13dev_base_s*`) | 3.68 / 2.99 / 4.37 (3.68) | 8.92 |
 | + static-shape compilation | 3.32 / 3.54 / 2.96 (3.27) | 8.85 |
 | + overlapped collection | 3.27 / 2.54 / 2.77 (2.86) | 9.51 |
 | + overlapped world-model updates | 2.86 / 2.68 / 2.67 (2.74) | 10.29 |
 | + policy learning-rate annealing = release configuration (`v13fine_s*`) | 4.00 / 3.03 / 2.61 (3.21) | 10.12 |
+
+From the starting point (3.68 min), v1.3's static-shape compilation and overlapped streams bring the
+time to **2.74 min (1.34× faster, 15 % more iterations per second)**, on seeds 0–2 (development runs).
+This configuration is the `instanttrack` preset with `--pi_anneal_len 0`. The release preset keeps the
+annealing and takes 3.21 min.
 
 The policy learning-rate annealing was added last, for holding the target, not for speed: on the fine
 protocol it does not lower the time (3.21 min against 2.74 min, with seed 0 the slowest at 4.00 min). On the 3-minute protocol,

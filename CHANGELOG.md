@@ -24,6 +24,7 @@ derivative of InstantTrack v1.2; we thank its author. Its notice is in `THIRD_PA
 | return / failed clips after 0.15 h (mean) | 0.855 / 0.2 | **0.865 / 0** |
 | return after 0.5 h (mean of 5) | 0.875 | **0.880** |
 | fine protocol (checkpoint every 100 iterations, 4 replicas), held ×3, seeds 0–2 | — | 3.21 min (4.00 / 3.03 / 2.61) |
+| same, without the policy learning-rate annealing (`--pi_anneal_len 0`; development runs) | — | 2.74 min (2.86 / 2.68 / 2.67) |
 | return after 1.5 h (seed 0) | 0.885 | **0.892** |
 | contact agreement with the reference (fixed 4.5 cm threshold), 1.5 h (seed 0) | **0.845** | 0.779 |
 | body orientation error, 1.5 h (°, seed 0) | **6.0** | 6.5 |
