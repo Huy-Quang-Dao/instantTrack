@@ -25,6 +25,8 @@ parser.add_argument("--enc_grad_frac", type=float, default=1.0,
                     help="(algorithm, with --batch_goal_enc) fraction of the imagined rollouts whose encoder latents carry gradients (scaled by 1/fraction)")
 parser.add_argument("--fp8", type=str, default="none", choices=["none", "pi", "wm", "all"],
                     help="(systems) float8 GEMMs (torchao) for the hidden linear layers of the policy, the world model or both")
+parser.add_argument("--eprobe_margin", type=float, default=1.0,
+                    help="(algorithm) the evaluation sweep also records a frame as a failure when the root height or tilt error exceeds this fraction of the termination thresholds (1: real failures only)")
 parser.add_argument("--batch_goal_enc", action="store_true",
                     help="(systems) encode the goals of all imagined steps in one batch before the rollout (they depend only on the reference)")
 parser.add_argument("--hist", type=int, default=10)
@@ -841,6 +843,8 @@ if EPROBE:
     assert pi_avg is not None, "--eprobe_share sweeps the EMA policy: needs --pi_ema"
     assert not args.eprobe_async or args.eprobe_graph, "--eprobe_async needs --eprobe_graph"
     EP_PI = copy.deepcopy(pi_avg.module) if args.eprobe_async else pi_avg.module  # sweep policy (async: a snapshot)
+    EP_TERM = mdp.termination
+    assert args.eprobe_margin >= 1.0 or args.eprobe_graph, "--eprobe_margin needs --eprobe_graph"
     EP_SIDE, EP_ASYNC, ITER_NOW = (torch.cuda.Stream() if args.eprobe_async else None), {}, [0]
     penv = TrackingSim(make_sim(robot), P_EP, robot, motion, mdp, dev, eval_mode=True, randomize=False, reset_noise=False)
     EP_FAIL = torch.zeros(motion.num_bins, device=dev)  # decayed counts of first failures per bin
@@ -880,7 +884,10 @@ def _eprobe_step():
     alive = ~penv.done_eval.clone()
     f_now = penv.f.clone()
     out = penv.step(a)
-    ff = torch.where(alive & (out["term"] | ~torch.isfinite(a).all(-1)), f_now, EPG["fail_f"])  # non-finite world: failed
+    bad = out["term"] | ~torch.isfinite(a).all(-1)  # non-finite world: failed
+    if args.eprobe_margin < 1.0:  # (algorithm) a near miss counts as a failure frame too; the sweep goes on
+        bad = bad | EP_TERM(penv.state(), torch.minimum(f_now + 1, EPG["fcap"]), args.eprobe_margin)
+    ff = torch.where(alive & bad & (EPG["fail_f"] < 0), f_now, EPG["fail_f"]) if args.eprobe_margin < 1.0 else torch.where(alive & bad, f_now, EPG["fail_f"])
     penv.done_eval |= penv.f >= EPG["stop"]
     f1 = torch.minimum(penv.f, EPG["fcap"])
     # the simulator wrapper rebinds these per step: copy them back into the static tensors the graph reads

@@ -165,12 +165,13 @@ class MDP:
             }
         return r
 
-    def termination(self, S, f) -> torch.Tensor:
+    def termination(self, S, f, scale: float = 1.0) -> torch.Tensor:
+        """Training termination; ``scale`` < 1: the same test at a fraction of both thresholds (a near miss)."""
         p, R = S[0], S[1]
         rp, rR = self.motion.root_p[f], self.motion.root_R[f]
         e_z = (rp[..., 2] - p[..., 2]).abs()
         e_tilt = (rR[..., 2, 2] - R[..., 2, 2]).abs()
-        return (e_z > self.cfg.term_height) | (e_tilt > self.cfg.term_tilt)
+        return (e_z > scale * self.cfg.term_height) | (e_tilt > scale * self.cfg.term_tilt)
 
     def soft_termination(self, S, f, tz: float = 0.02, tt: float = 0.04) -> torch.Tensor:
         """Differentiable termination probability for imagined rollouts."""
