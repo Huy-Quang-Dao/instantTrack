@@ -16,6 +16,7 @@ dependencies = [
   "torch>=2.7.0",
   "matplotlib",
   "pillow",
+  "torchao==0.14.1",
 ]
 
 [tool.uv]

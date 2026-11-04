@@ -23,6 +23,8 @@ parser.add_argument("--horizon", type=int, default=32)
 parser.add_argument("--goal_frames", type=int, default=10)
 parser.add_argument("--enc_grad_frac", type=float, default=1.0,
                     help="(algorithm, with --batch_goal_enc) fraction of the imagined rollouts whose encoder latents carry gradients (scaled by 1/fraction)")
+parser.add_argument("--fp8", type=str, default="none", choices=["none", "pi", "wm", "all"],
+                    help="(systems) float8 GEMMs (torchao) for the hidden linear layers of the policy, the world model or both")
 parser.add_argument("--batch_goal_enc", action="store_true",
                     help="(systems) encode the goals of all imagined steps in one batch before the rollout (they depend only on the reference)")
 parser.add_argument("--hist", type=int, default=10)
@@ -201,6 +203,19 @@ wm = WorldModel(J, layout.dim, use_prev_action=robot.has_action_delay, hidden=wi
 pi = Policy(mdp.obs_dim, GOAL_DIM, J, hist=Hh, enc_hidden=widths(args.enc_hidden), dec_hidden=widths(args.dec_hidden),
             **policy_kwargs(vars(args), robot)).to(dev)
 critic = Critic(CRITIC_IN).to(dev)
+if args.fp8 != "none":
+    # (systems, lower precision) the hidden linear layers (both dimensions multiples of 16, at least 256 wide) run their
+    # three GEMMs (forward, input and weight gradients) in float8 with dynamic per-tensor scaling (torchao Float8Linear);
+    # master weights, optimizer states and the first and last layers stay as before
+    from torchao.float8 import Float8LinearConfig, convert_to_float8_training
+
+    def _fp8_ok(mod, fqn):
+        return isinstance(mod, nn.Linear) and mod.in_features % 16 == 0 and mod.out_features % 16 == 0 and min(mod.in_features, mod.out_features) >= 256
+
+    for _name, _m in (("pi", pi), ("wm", wm)):
+        if args.fp8 in (_name, "all"):
+            convert_to_float8_training(_m, config=Float8LinearConfig(), module_filter_fn=_fp8_ok)
+            print(f"--fp8: {_name}: {sum(type(x).__name__ == 'Float8Linear' for x in _m.modules())} float8 linear layers")
 GRAPH = args.cuda_graph
 if GRAPH:
     assert args.no_sync and args.fused_adam, "--cuda_graph needs --no_sync --fused_adam"
