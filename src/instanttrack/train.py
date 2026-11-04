@@ -21,6 +21,10 @@ parser.add_argument("--buffer_steps", type=int, default=1000)
 parser.add_argument("--utd", type=float, default=0.4, help="updates per vectorized simulator step")
 parser.add_argument("--horizon", type=int, default=32)
 parser.add_argument("--goal_frames", type=int, default=10)
+parser.add_argument("--enc_grad_frac", type=float, default=1.0,
+                    help="(algorithm, with --batch_goal_enc) fraction of the imagined rollouts whose encoder latents carry gradients (scaled by 1/fraction)")
+parser.add_argument("--batch_goal_enc", action="store_true",
+                    help="(systems) encode the goals of all imagined steps in one batch before the rollout (they depend only on the reference)")
 parser.add_argument("--hist", type=int, default=10)
 parser.add_argument("--wm_window", type=int, default=8)
 parser.add_argument("--wm_batches", type=int, default=10)
@@ -148,6 +152,7 @@ parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--resume", type=str, default=None)
 parser.add_argument("--amp", type=str, default="bf16", choices=["none", "bf16"], help="autocast dtype for MLP matmuls")
 args = parser.parse_args()
+assert args.enc_grad_frac >= 1.0 or args.batch_goal_enc, "--enc_grad_frac needs --batch_goal_enc"
 
 import torch
 import torch.nn as nn
@@ -291,8 +296,8 @@ def _wm_err(S_hat, s1, mask):
     return (e * mask).sum() / s1.shape[0], e[:, -1]
 
 
-def _imag_step(S, o_hist, a_prev, f, xi, xi_n, g):
-    a = pi(o_hist, g)
+def _imag_step(S, o_hist, a_prev, f, xi, xi_n, g, z=None):
+    a = pi(o_hist, g, z)
     S1 = wm_imag.step(S, a, a_prev, xi_n)
     f1 = f + 1
     o1 = mdp.add_noise(mdp.obs(S1, a, xi, f1))
@@ -484,13 +489,30 @@ def policy_update():
     g0 = motion.goal(f, K)
     g = g0
     S0 = S
+    Z = None
+    if args.batch_goal_enc:  # the goals depend only on the reference: encode all H x B of them at once, off the serial chain
+        F = f.unsqueeze(0) + torch.arange(HZ, device=f.device, dtype=f.dtype).unsqueeze(1)
+        G_all = motion.goal(F.flatten(), K).view(HZ, B, -1)
+        if args.enc_grad_frac < 1.0:
+            # (algorithm) backpropagate into the encoder through a random subset of the rollouts only, scaled by
+            # 1 / fraction so the encoder gradient stays unbiased; the other rollouts use the same latents without
+            # a graph for the encoder
+            nb = max(1, int(round(args.enc_grad_frac * B)))
+            sel = torch.argsort(torch.rand(B, device=f.device))[:nb]
+            with torch.no_grad():
+                Z = pi.encode(G_all)
+            Zg = pi.encode(G_all[:, sel])
+            Zg = Zg.detach() + (Zg - Zg.detach()) / (nb / B)
+            Z = Z.index_copy(1, sel, Zg)
+        else:
+            Z = pi.encode(G_all)
     Ss, As, Aps, Fs, Gs = [], [], [], [], []
     for t in range(HZ):
         Aps.append(a_prev)
         if pipe.stateful:
             S, a_prev, o_hist, f, g, st = imag_step_sensed(S, o_hist, a_prev, f, xi, xi_n, g, st)
         else:
-            S, a_prev, o_hist, f, g = imag_step(S, o_hist, a_prev, f, xi, xi_n, g)
+            S, a_prev, o_hist, f, g = imag_step(S, o_hist, a_prev, f, xi, xi_n, g, None if Z is None else Z[t])
         Ss.append(S), As.append(a_prev), Fs.append(f), Gs.append(g)
     flat = lambda xs: torch.stack(xs).flatten(0, 1)  # noqa: E731  (H*B, ...)
     S_all = tuple(flat([St[i] for St in Ss]) for i in range(6))
