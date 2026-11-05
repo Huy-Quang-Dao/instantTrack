@@ -29,6 +29,8 @@ parser.add_argument("--eprobe_margin", type=float, default=1.0,
                     help="(algorithm) the evaluation sweep also records a frame as a failure when the root height or tilt error exceeds this fraction of the termination thresholds (1: real failures only)")
 parser.add_argument("--eprobe_noise", type=float, default=0.0,
                     help="(algorithm) Gaussian action noise of the evaluation sweep (0: deterministic, as evaluated)")
+parser.add_argument("--eprobe_active", type=int, default=0,
+                    help="(algorithm) probe worlds per sweep (0: one per tile, every tile every sweep); fewer: recently failing tiles first, then the least recently probed")
 parser.add_argument("--batch_goal_enc", action="store_true",
                     help="(systems) encode the goals of all imagined steps in one batch before the rollout (they depend only on the reference)")
 parser.add_argument("--hist", type=int, default=10)
@@ -841,7 +843,13 @@ EPROBE = args.eprobe_share > 0  # --eprobe_share; off: code path and random stre
 if EPROBE:
     EP_TILE = torch.cat([torch.arange(int(motion.clip_start[c]), int(motion.clip_end[c]) - 1, args.eprobe_tile)
                          for c in range(len(motion.names))]).to(dev)  # fmt: skip
-    P_EP = len(EP_TILE)
+    N_TILE = len(EP_TILE)
+    # --eprobe_active N (algorithm): each sweep probes N of the tiles: those with recent failures first (up to half), the
+    # rest the tiles probed longest ago, so every tile is still covered every few sweeps
+    P_EP = min(args.eprobe_active, N_TILE) if args.eprobe_active > 0 else N_TILE
+    TILE_SCORE = torch.zeros(N_TILE, device=dev)  # decayed failures per tile
+    TILE_AGE = torch.full((N_TILE,), 1 << 20, dtype=torch.long, device=dev) + torch.randperm(N_TILE, device=dev)  # sweeps since probed
+    EP_SEL = [torch.arange(P_EP, device=dev)]
     assert pi_avg is not None, "--eprobe_share sweeps the EMA policy: needs --pi_ema"
     assert not args.eprobe_async or args.eprobe_graph, "--eprobe_async needs --eprobe_graph"
     EP_PI = copy.deepcopy(pi_avg.module) if args.eprobe_async else pi_avg.module  # sweep policy (async: a snapshot)
@@ -854,7 +862,19 @@ if EPROBE:
     # weight back over the window before it
     _nxt = torch.arange(motion.num_bins, device=dev) + 1
     EP_NEXT = torch.where((_nxt < motion.num_bins) & (motion.bin_clip[_nxt.clamp(max=motion.num_bins - 1)] == motion.bin_clip), _nxt, _nxt - 1)
-    print(f"--eprobe: {len(EP_TILE)} probe worlds (tiles of {args.eprobe_tile} frames)", flush=True)
+    print(f"--eprobe: {P_EP} probe worlds of {N_TILE} tiles of {args.eprobe_tile} frames", flush=True)
+
+
+def eprobe_select():
+    """Tile index of each probe world for the next sweep."""
+    if P_EP == N_TILE:
+        return torch.arange(N_TILE, device=dev)
+    nf = min(int((TILE_SCORE > 0).sum()), P_EP // 2)
+    hot = torch.argsort(TILE_SCORE, descending=True)[:nf]
+    age = TILE_AGE.clone()
+    age[hot] = -1
+    rest = torch.argsort(age, descending=True)[: P_EP - nf]
+    return torch.cat((hot, rest))
 
 
 @torch.no_grad()
@@ -961,12 +981,14 @@ def eprobe_burst(it):
     the --eprobe_win bins before each failure."""
     m, P = motion, P_EP
     t0 = time.time()
-    cid = m.clip_id[EP_TILE]
+    EP_SEL[0] = eprobe_select()
+    tiles = EP_TILE[EP_SEL[0]]
+    cid = m.clip_id[tiles]
     lead = int(torch.randint(args.eprobe_lead_min, args.eprobe_lead_max + 1, (1,)))
-    f0 = torch.maximum(EP_TILE - lead, m.clip_start[cid])
+    f0 = torch.maximum(tiles - lead, m.clip_start[cid])
     # a probe is done at its tile end or at the clip's last frame (the full evaluation also checks the last transition);
     # finished probes keep stepping with the frame capped so that f + 1 stays in the clip
-    stop = torch.minimum(EP_TILE + args.eprobe_tile, m.clip_end[cid])
+    stop = torch.minimum(tiles + args.eprobe_tile, m.clip_end[cid])
     fcap = torch.minimum(stop, m.clip_end[cid] - 1)
     ids = torch.arange(P, device=dev)
     penv.done_eval[:] = False
@@ -1012,6 +1034,10 @@ def eprobe_async_tick(launch):
 
 def eprobe_finish(it, lead, t0, fail_f):
     m, P = motion, P_EP
+    TILE_SCORE.mul_(args.eprobe_decay)
+    TILE_SCORE.index_add_(0, EP_SEL[0], (fail_f >= 0).float())
+    TILE_AGE.add_(1)
+    TILE_AGE[EP_SEL[0]] = 0
     EP_FAIL.mul_(args.eprobe_decay)
     fb = m.frame_bin[fail_f[fail_f >= 0]]
     EP_FAIL.index_add_(0, fb, torch.ones_like(fb, dtype=EP_FAIL.dtype))
@@ -1067,6 +1093,7 @@ if RESUME_CTRL is not None:
     print(f"--resume: LR trigger at {DECAY_AT[0]}, focus {'set' if RESUME_CTRL.get('focus_q') is not None else 'none'}", flush=True)
 
 
+TPROF_AT = int(os.environ.get("IT14_TPROF", "0"))
 for it in range(start_it, args.iterations):
     lr = lr_at(it)
     pi_mult = args.pi_lr_mult  # --lr_decay_ret: ramps to 1 after the trigger
@@ -1135,6 +1162,16 @@ for it in range(start_it, args.iterations):
         agg["pi"].append(pl), agg["v"].append(vl), agg["ir"].append(ir), agg["gn"].append(gn), agg["surv"].append(surv)
     if args.overlap_wm:
         torch.cuda.current_stream().wait_stream(WM_SIDE)
+    if TPROF_AT and it + 1 == TPROF_AT:  # IT14_TPROF=<it>: kernel trace of 20 iterations from <it> on (diagnosis only)
+        torch.cuda.synchronize()
+        TPROF = torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CUDA, torch.profiler.ProfilerActivity.CPU])
+        TPROF.__enter__()
+        TPROF_T0 = time.time()
+    if TPROF_AT and it + 1 == TPROF_AT + 20:
+        torch.cuda.synchronize()
+        print(f"TPROF wall {1e3 * (time.time() - TPROF_T0) / 20:.1f} ms/it", flush=True)
+        TPROF.__exit__(None, None, None)
+        TPROF.export_chrome_trace(os.path.join(args.log_dir, "tprof_trace.json"))
     if OCRIT and (it + 1) % args.log_every == 0:
         torch.cuda.current_stream().wait_stream(CRIT_SIDE)  # its loss is read below
     if (it + 1) % args.log_every == 0:
