@@ -27,6 +27,8 @@ parser.add_argument("--fp8", type=str, default="none", choices=["none", "pi", "w
                     help="(systems) float8 GEMMs (torchao) for the hidden linear layers of the policy, the world model or both")
 parser.add_argument("--eprobe_margin", type=float, default=1.0,
                     help="(algorithm) the evaluation sweep also records a frame as a failure when the root height or tilt error exceeds this fraction of the termination thresholds (1: real failures only)")
+parser.add_argument("--eprobe_noise", type=float, default=0.0,
+                    help="(algorithm) Gaussian action noise of the evaluation sweep (0: deterministic, as evaluated)")
 parser.add_argument("--batch_goal_enc", action="store_true",
                     help="(systems) encode the goals of all imagined steps in one batch before the rollout (they depend only on the reference)")
 parser.add_argument("--hist", type=int, default=10)
@@ -844,7 +846,7 @@ if EPROBE:
     assert not args.eprobe_async or args.eprobe_graph, "--eprobe_async needs --eprobe_graph"
     EP_PI = copy.deepcopy(pi_avg.module) if args.eprobe_async else pi_avg.module  # sweep policy (async: a snapshot)
     EP_TERM = mdp.termination
-    assert args.eprobe_margin >= 1.0 or args.eprobe_graph, "--eprobe_margin needs --eprobe_graph"
+    assert (args.eprobe_margin >= 1.0 and args.eprobe_noise == 0) or args.eprobe_graph, "--eprobe_margin / --eprobe_noise need --eprobe_graph"
     EP_SIDE, EP_ASYNC, ITER_NOW = (torch.cuda.Stream() if args.eprobe_async else None), {}, [0]
     penv = TrackingSim(make_sim(robot), P_EP, robot, motion, mdp, dev, eval_mode=True, randomize=False, reset_noise=False)
     EP_FAIL = torch.zeros(motion.num_bins, device=dev)  # decayed counts of first failures per bin
@@ -881,6 +883,8 @@ def _eprobe_step():
     o = penv.observe()
     h = torch.cat((EPG["hist"][:, 1:], o.unsqueeze(1)), 1)
     a = EP_PI(h, motion.goal(penv.f, K))
+    if args.eprobe_noise > 0:  # (algorithm) perturbed sweep: marginal clips that the deterministic policy just survives fail too
+        a = a + args.eprobe_noise * torch.randn_like(a)
     alive = ~penv.done_eval.clone()
     f_now = penv.f.clone()
     out = penv.step(a)
