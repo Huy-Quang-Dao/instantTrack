@@ -21,14 +21,6 @@ parser.add_argument("--buffer_steps", type=int, default=1000)
 parser.add_argument("--utd", type=float, default=0.4, help="updates per vectorized simulator step")
 parser.add_argument("--horizon", type=int, default=32)
 parser.add_argument("--goal_frames", type=int, default=10)
-parser.add_argument("--enc_grad_frac", type=float, default=1.0,
-                    help="(algorithm, with --batch_goal_enc) fraction of the imagined rollouts whose encoder latents carry gradients (scaled by 1/fraction)")
-parser.add_argument("--fp8", type=str, default="none", choices=["none", "pi", "wm", "all"],
-                    help="(systems) float8 GEMMs (torchao) for the hidden linear layers of the policy, the world model or both")
-parser.add_argument("--eprobe_margin", type=float, default=1.0,
-                    help="(algorithm) the evaluation sweep also records a frame as a failure when the root height or tilt error exceeds this fraction of the termination thresholds (1: real failures only)")
-parser.add_argument("--eprobe_noise", type=float, default=0.0,
-                    help="(algorithm) Gaussian action noise of the evaluation sweep (0: deterministic, as evaluated)")
 parser.add_argument("--eprobe_active", type=int, default=0,
                     help="(algorithm) probe worlds per sweep (0: one per tile, every tile every sweep); fewer: recently failing tiles first, then the least recently probed")
 parser.add_argument("--batch_goal_enc", action="store_true",
@@ -163,7 +155,6 @@ parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--resume", type=str, default=None)
 parser.add_argument("--amp", type=str, default="bf16", choices=["none", "bf16"], help="autocast dtype for MLP matmuls")
 args = parser.parse_args()
-assert args.enc_grad_frac >= 1.0 or args.batch_goal_enc, "--enc_grad_frac needs --batch_goal_enc"
 
 import torch
 import torch.nn as nn
@@ -212,19 +203,6 @@ wm = WorldModel(J, layout.dim, use_prev_action=robot.has_action_delay, hidden=wi
 pi = Policy(mdp.obs_dim, GOAL_DIM, J, hist=Hh, enc_hidden=widths(args.enc_hidden), dec_hidden=widths(args.dec_hidden),
             **policy_kwargs(vars(args), robot)).to(dev)
 critic = Critic(CRITIC_IN).to(dev)
-if args.fp8 != "none":
-    # (systems, lower precision) the hidden linear layers (both dimensions multiples of 16, at least 256 wide) run their
-    # three GEMMs (forward, input and weight gradients) in float8 with dynamic per-tensor scaling (torchao Float8Linear);
-    # master weights, optimizer states and the first and last layers stay as before
-    from torchao.float8 import Float8LinearConfig, convert_to_float8_training
-
-    def _fp8_ok(mod, fqn):
-        return isinstance(mod, nn.Linear) and mod.in_features % 16 == 0 and mod.out_features % 16 == 0 and min(mod.in_features, mod.out_features) >= 256
-
-    for _name, _m in (("pi", pi), ("wm", wm)):
-        if args.fp8 in (_name, "all"):
-            convert_to_float8_training(_m, config=Float8LinearConfig(), module_filter_fn=_fp8_ok)
-            print(f"--fp8: {_name}: {sum(type(x).__name__ == 'Float8Linear' for x in _m.modules())} float8 linear layers")
 GRAPH = args.cuda_graph
 if GRAPH:
     assert args.no_sync and args.fused_adam, "--cuda_graph needs --no_sync --fused_adam"
@@ -531,19 +509,7 @@ def policy_update():
     if args.batch_goal_enc:  # the goals depend only on the reference: encode all H x B of them at once, off the serial chain
         F = f.unsqueeze(0) + torch.arange(HZ, device=f.device, dtype=f.dtype).unsqueeze(1)
         G_all = motion.goal(F.flatten(), K).view(HZ, B, -1)
-        if args.enc_grad_frac < 1.0:
-            # (algorithm) backpropagate into the encoder through a random subset of the rollouts only, scaled by
-            # 1 / fraction so the encoder gradient stays unbiased; the other rollouts use the same latents without
-            # a graph for the encoder
-            nb = max(1, int(round(args.enc_grad_frac * B)))
-            sel = torch.argsort(torch.rand(B, device=f.device))[:nb]
-            with torch.no_grad():
-                Z = pi.encode(G_all)
-            Zg = pi.encode(G_all[:, sel])
-            Zg = Zg.detach() + (Zg - Zg.detach()) / (nb / B)
-            Z = Z.index_copy(1, sel, Zg)
-        else:
-            Z = pi.encode(G_all)
+        Z = pi.encode(G_all)
     Ss, As, Aps, Fs, Gs = [], [], [], [], []
     for t in range(HZ):
         Aps.append(a_prev)
@@ -853,8 +819,6 @@ if EPROBE:
     assert pi_avg is not None, "--eprobe_share sweeps the EMA policy: needs --pi_ema"
     assert not args.eprobe_async or args.eprobe_graph, "--eprobe_async needs --eprobe_graph"
     EP_PI = copy.deepcopy(pi_avg.module) if args.eprobe_async else pi_avg.module  # sweep policy (async: a snapshot)
-    EP_TERM = mdp.termination
-    assert (args.eprobe_margin >= 1.0 and args.eprobe_noise == 0) or args.eprobe_graph, "--eprobe_margin / --eprobe_noise need --eprobe_graph"
     EP_SIDE, EP_ASYNC, ITER_NOW = (torch.cuda.Stream() if args.eprobe_async else None), {}, [0]
     penv = TrackingSim(make_sim(robot), P_EP, robot, motion, mdp, dev, eval_mode=True, randomize=False, reset_noise=False)
     EP_FAIL = torch.zeros(motion.num_bins, device=dev)  # decayed counts of first failures per bin
@@ -903,15 +867,10 @@ def _eprobe_step():
     o = penv.observe()
     h = torch.cat((EPG["hist"][:, 1:], o.unsqueeze(1)), 1)
     a = EP_PI(h, motion.goal(penv.f, K))
-    if args.eprobe_noise > 0:  # (algorithm) perturbed sweep: marginal clips that the deterministic policy just survives fail too
-        a = a + args.eprobe_noise * torch.randn_like(a)
     alive = ~penv.done_eval.clone()
     f_now = penv.f.clone()
     out = penv.step(a)
-    bad = out["term"] | ~torch.isfinite(a).all(-1)  # non-finite world: failed
-    if args.eprobe_margin < 1.0:  # (algorithm) a near miss counts as a failure frame too; the sweep goes on
-        bad = bad | EP_TERM(penv.state(), torch.minimum(f_now + 1, EPG["fcap"]), args.eprobe_margin)
-    ff = torch.where(alive & bad & (EPG["fail_f"] < 0), f_now, EPG["fail_f"]) if args.eprobe_margin < 1.0 else torch.where(alive & bad, f_now, EPG["fail_f"])
+    ff = torch.where(alive & (out["term"] | ~torch.isfinite(a).all(-1)), f_now, EPG["fail_f"])  # non-finite world: failed
     penv.done_eval |= penv.f >= EPG["stop"]
     f1 = torch.minimum(penv.f, EPG["fcap"])
     # the simulator wrapper rebinds these per step: copy them back into the static tensors the graph reads
@@ -1093,7 +1052,6 @@ if RESUME_CTRL is not None:
     print(f"--resume: LR trigger at {DECAY_AT[0]}, focus {'set' if RESUME_CTRL.get('focus_q') is not None else 'none'}", flush=True)
 
 
-TPROF_AT = int(os.environ.get("IT14_TPROF", "0"))
 for it in range(start_it, args.iterations):
     lr = lr_at(it)
     pi_mult = args.pi_lr_mult  # --lr_decay_ret: ramps to 1 after the trigger
@@ -1162,16 +1120,6 @@ for it in range(start_it, args.iterations):
         agg["pi"].append(pl), agg["v"].append(vl), agg["ir"].append(ir), agg["gn"].append(gn), agg["surv"].append(surv)
     if args.overlap_wm:
         torch.cuda.current_stream().wait_stream(WM_SIDE)
-    if TPROF_AT and it + 1 == TPROF_AT:  # IT14_TPROF=<it>: kernel trace of 20 iterations from <it> on (diagnosis only)
-        torch.cuda.synchronize()
-        TPROF = torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CUDA, torch.profiler.ProfilerActivity.CPU])
-        TPROF.__enter__()
-        TPROF_T0 = time.time()
-    if TPROF_AT and it + 1 == TPROF_AT + 20:
-        torch.cuda.synchronize()
-        print(f"TPROF wall {1e3 * (time.time() - TPROF_T0) / 20:.1f} ms/it", flush=True)
-        TPROF.__exit__(None, None, None)
-        TPROF.export_chrome_trace(os.path.join(args.log_dir, "tprof_trace.json"))
     if OCRIT and (it + 1) % args.log_every == 0:
         torch.cuda.current_stream().wait_stream(CRIT_SIDE)  # its loss is read below
     if (it + 1) % args.log_every == 0:

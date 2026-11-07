@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "instanttrack"
-version = "1.3.0"
+version = "1.4.0"
 description = "InstantTrack: SuperMimic-style world-model tracking with an InstantMimic-style GPU-native training loop, on mjlab."
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
@@ -16,7 +16,6 @@ dependencies = [
   "torch>=2.7.0",
   "matplotlib",
   "pillow",
-  "torchao==0.14.1",
 ]
 
 [tool.uv]
