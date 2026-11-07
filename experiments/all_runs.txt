@@ -117,3 +117,13 @@ RUN:v13fine_s0 scripts/fine_protocol.sh v13fine_s0 0
 RUN:v13fine_s1 scripts/fine_protocol.sh v13fine_s1 1
 RUN:v13fine_s2 scripts/fine_protocol.sh v13fine_s2 2
 RUN:v12_gif_s0 (v1.2.0 code, tag v1.2.0) bash scripts/train.sh instanttrack v12_gif_s0 --seed 0 --max_hours 0.06   # equal-time GIF only
+
+# v1.4: development runs (rejected flags present and off). B="--batch_goal_enc --overlap_critic --eprobe_active 372 --eprobe_async 10"; every run's flags: results/runs/<run>/args.json
+RUN:f_e10_s{0..14}, f_e10_s7r  fine protocol, seed as named, with B (v1.4 configuration)
+RUN:f_v13_s{3..9}, b13_s{10..14}  fine protocol, seed as named, no extra flags (v1.3 configuration)
+RUN:n14_s{0..9}  fine protocol with B --pi_anneal_len 0
+RUN:n13_s{0..9}, n13_s7r  fine protocol with --pi_anneal_len 0
+RUN:e14_s{0..4}, e14_150h_s0  scripts/train.sh instanttrack ... --max_hours 0.5 or 1.5 with B
+# v1.4 released code
+RUN:v14fine_s{0..2} scripts/fine_protocol.sh v14fine_s<seed> <seed>
+RUN:v14_s0 scripts/train.sh instanttrack v14_s0 --seed 0 --max_hours 0.5

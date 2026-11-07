@@ -8,6 +8,31 @@ with the protocol in the README ("Time to target"); every number below can be re
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-07
+
+### Results
+
+| | 1.3.0 | 1.4.0 |
+|---|---|---|
+| iterations per second (fine protocol, seeds 10–14) | 10.28 | **11.87** |
+| fine protocol, first return ≥ 0.82 (mean, 15 seeds) | 2.22 min | **2.01 min** |
+| fine protocol, held ×3 (mean, 15 seeds) | 3.09 min | **2.74 min** (p = 0.10, not established) |
+| fine protocol, held ×6 (mean) | 3.34 min | 3.05 min (14 of 15 seeds reached it in 0.1 h) |
+| return after 0.5 h (mean of 5) | 0.880 | 0.880 |
+| return after 1.5 h (seed 0) | 0.892 | 0.894 |
+
+### Fixed
+- **Correction of a published number.** The v1.3 README and project page gave 2.74 min for the configuration without policy learning-rate
+  annealing, from seeds 0–2. On seeds 0–9 it is 3.17 min, against 3.16 min with annealing. The v1.3 entry below is
+  kept as published.
+
+### Added
+- In the `instanttrack` preset: `--batch_goal_enc`, `--overlap_critic` (needs `--overlap_wm`), `--eprobe_active 372`; `--eprobe_async` goes from 20 to 10.
+- `results/runs/`: `f_e10_s*`, `v14fine_s*`, `e14_*` (v1.4), `f_v13_s*`, `b13_s*` (v1.3 on more seeds), `n14_s*`, `n13_s*` (no annealing), and the runs of rejected changes; `results/metrics_e14_*`.
+
+### Not adopted
+Encoder gradients through a subset of rollouts, near-miss and perturbed evaluation sweeps, imagination starts weighted by sweep failures, float8 matrix multiplications, 3 world-model batches, earlier learning-rate decay, 7 sweep steps per iteration. Numbers in the README.
+
 ## [1.3.0] - 2026-11-04
 
 v1.3 incorporates the changes of [BlinkMimic](https://github.com/fuyichen0725/blinkmimic) (Fuyi Chen), a

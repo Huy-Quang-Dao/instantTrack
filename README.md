@@ -7,14 +7,19 @@ RTX 5090, for all 5 seeds**, and holds it from there. On the same machine, simul
 evaluator, our reimplementation of SuperMimic needs **1.50 h**, and SuperMimic with the policy EMA we
 add needs **0.55 h**. InstantTrack is also more accurate and makes cleaner foot contact.
 
+> **v1.4.0 (2026-11-07).** 15 % more training iterations per second (10.28 → 11.87) from moving more
+> work onto side CUDA streams, with the same return at 0.5 h. Time to hold the target on the fine protocol, 15 paired
+> seeds: 3.09 → **2.74 min** on average. That gain is a trend, not yet statistically established (p = 0.10);
+> the iteration rate is the firm result. Details in [What's new in v1.4](#whats-new-in-v14).
+>
+> **Correction to v1.3.** The v1.3 README quoted 2.74 minutes for the configuration without policy
+> learning-rate annealing, from three seeds. On ten seeds that configuration takes **3.17 min**, about
+> the same as with annealing (3.16 min on the same seeds). The 2.74 minutes of v1.4 above is a different
+> measurement on 15 seeds; the two numbers are equal by coincidence.
+>
 > **v1.3.0 (2026-11-04).** v1.3 incorporates the changes of
 > [BlinkMimic](https://github.com/fuyichen0725/blinkmimic), a derivative of InstantTrack by Fuyi Chen;
-> we thank its author. On top of them, v1.3 adds static-shape compilation, a collection step and
-> world-model updates that run on side CUDA streams alongside the policy update, and policy
-> learning-rate annealing after the target is reached. Time to target: 0.12 h → **≤ 0.05 h** (first
-> checkpoint, all 5 seeds; 4.7× → **≥ 10.9×** over SuperMimic + EMA), 8.74 → 10.32 iterations per
-> second, and higher return. Details in [What's new in v1.3](#whats-new-in-v13) and
-> [CHANGELOG.md](CHANGELOG.md). The v1.0–v1.2 configurations use flags of the earlier code base;
+> we thank its author. See [What's new in v1.3](#whats-new-in-v13) and [CHANGELOG.md](CHANGELOG.md). The v1.0–v1.2 configurations use flags of the earlier code base;
 > check out tag `v1.2.0` to run them.
 
 > **New: InstantGMT (in progress).** InstantTrack's training ideas applied to general motion
@@ -38,34 +43,97 @@ At this checkpoint, over all 40 clips, InstantTrack v1.2 fails 8 (`results/runs/
 InstantTrack v1.3 fails 0 (`results/runs/v13_s0`). Solid robot: policy simulated in MuJoCo Warp. Faint
 blue ghost: reference motion. More videos in `media/` of the [`instanttrack-page`](https://github.com/Huy-Quang-Dao/instantTrack/tree/instanttrack-page) branch.*
 
-| on 1× RTX 5090, 40 LAFAN1 clips | SuperMimic | SuperMimic + EMA | InstantTrack v1.1 | InstantTrack v1.2 | **InstantTrack v1.3** |
-|---|---|---|---|---|---|
-| seeds | 1 | 3 | 5 | 5 | 5 |
-| time to return ≥ 0.82 with 0/40 failed clips (held ×3), mean | 1.50 h | 0.55 h | 0.19 h | 0.12 h | **≤ 0.05 h** |
-| per seed | 1.50 | 0.50 / 0.54 / 0.60 | 0.15 / 0.16 / 0.25 / 0.20 / 0.20 | 0.10 / 0.10 / 0.10 / 0.10 / 0.18 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 |
-| speed-up over SuperMimic + EMA | 0.4× | 1× | 2.8× | 4.7× | **≥ 10.9×** |
-| training iterations per second | 3.05 | 3.08 | 6.28 | 8.74 | **10.32** |
-| return / failed clips after 0.15 h (mean) | 0.545 / 12 | 0.540 / 12.3 | 0.822 / 0.2 | 0.855 / 0.2 | **0.865 / 0** |
-| return after 1.5 h (seed 0) | 0.853 | 0.879–0.880 | 0.880–0.881 | 0.886 | **0.892** |
-| body orientation error, 1.5 h (°, seed 0) | 9.6 | 9.2 | 5.8 | 6.0 | 6.5 |
-| contact agreement with the reference, 1.5 h (seed 0) | 0.733 | 0.733 | 0.837 | 0.845 | 0.779 |
-| foot slip in contact, 1.5 h (cm/s, seed 0; the reference itself: 10.2) | 8.11 | 7.78 | 6.49 | 6.56 | **6.27** |
+| on 1× RTX 5090, 40 LAFAN1 clips | SuperMimic | SuperMimic + EMA | InstantTrack v1.1 | InstantTrack v1.2 | InstantTrack v1.3 | **InstantTrack v1.4** |
+|---|---|---|---|---|---|---|
+| seeds | 1 | 3 | 5 | 5 | 5 | 5 |
+| time to return ≥ 0.82 with 0/40 failed clips (held ×3), mean | 1.50 h | 0.55 h | 0.19 h | 0.12 h | **≤ 0.05 h** | **≤ 0.05 h** |
+| per seed | 1.50 | 0.50 / 0.54 / 0.60 | 0.15 / 0.16 / 0.25 / 0.20 / 0.20 | 0.10 / 0.10 / 0.10 / 0.10 / 0.18 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 |
+| speed-up over SuperMimic + EMA | 0.4× | 1× | 2.8× | 4.7× | **≥ 10.9×** | **≥ 11.9×** |
+| training iterations per second | 3.05 | 3.08 | 6.28 | 8.74 | **10.32** | **11.81** |
+| return / failed clips after 0.15 h (mean) | 0.545 / 12 | 0.540 / 12.3 | 0.822 / 0.2 | 0.855 / 0.2 | **0.865 / 0** | **0.870 / 0** |
+| return after 1.5 h (seed 0) | 0.853 | 0.879–0.880 | 0.880–0.881 | 0.886 | **0.892** | **0.894** |
+| body orientation error, 1.5 h (°, seed 0) | 9.6 | 9.2 | 5.8 | 6.0 | 6.5 | 6.4 |
+| contact agreement with the reference, 1.5 h (seed 0) | 0.733 | 0.733 | 0.837 | 0.845 | 0.779 | 0.782 |
+| foot slip in contact, 1.5 h (cm/s, seed 0; the reference itself: 10.2) | 8.11 | 7.78 | 6.49 | 6.56 | **6.27** | **6.15** |
 
-0.05 h is the first checkpoint of the 3-minute protocol, so v1.3's time is at most 0.05 h. With a
-checkpoint every 100 iterations and 4 evaluation replicas per checkpoint, v1.3 holds the target from
-3.2 minutes on average (4.00 / 3.03 / 2.61 min on seeds 0–2), and from 2.74 minutes without the policy
-learning-rate annealing (`--pi_anneal_len 0`; see [What's new in v1.3](#whats-new-in-v13)).
+0.05 h is the first checkpoint of the 3-minute protocol, so the times of v1.3 and v1.4 are upper bounds,
+and the speed-ups are lower bounds that depend on when that first checkpoint falls (v1.4 reaches 2000
+iterations sooner). With a checkpoint every 100 iterations and 4 evaluation replicas per checkpoint,
+the target is held from **2.74 min on average for v1.4 and 3.09 min for v1.3** (15 seeds; see
+[What's new in v1.4](#whats-new-in-v14)).
 
 All numbers come from runs in this repository. Each run's evaluation log and training log are in
 [`results/runs/`](results/runs/), and every table and figure is regenerated from them by
 `tools/make_report.py`. Read [How to read these numbers](#how-to-read-these-numbers) before quoting
 them.
 
-**Contents:** [What's new in v1.3](#whats-new-in-v13) · [What InstantTrack changes](#what-instanttrack-changes) ·
+**Contents:** [What's new in v1.4](#whats-new-in-v14) · [What's new in v1.3](#whats-new-in-v13) · [What InstantTrack changes](#what-instanttrack-changes) ·
 [Results](#results) · [How to read these numbers](#how-to-read-these-numbers) ·
 [Setup](#setup) · [Training](#training) · [Evaluation](#evaluation-and-metrics) ·
 [Reproducing the tables](#reproducing-the-tables) · [Repository layout](#repository-layout) ·
 [Attribution and licenses](#attribution-and-licenses) · [Citation](#citation)
+
+---
+
+## What's new in v1.4
+
+v1.4 does not change what the policy learns per iteration much; it runs each iteration faster.
+
+| Change | Flag | Kind | What it does |
+|---|---|---|---|
+| Batched goal encoding | `--batch_goal_enc` | systems | The goals of all imagined steps depend only on the reference, so they are encoded in one batch before the rollout instead of step by step. |
+| Critic on a side stream | `--overlap_critic` | systems | The critic trains on a side CUDA stream next to the next policy update, which bootstraps with a copy of the critic one update round older. Needs `--overlap_wm`. |
+| Evaluation sweep alongside training | `--eprobe_async 10` (was 20) | systems | Ten sweep steps per iteration on a side stream, with a snapshot of the EMA policy from the start of the sweep. |
+| Active evaluation sweep | `--eprobe_active 372` | algorithm | Each sweep runs 372 of the 1489 tiles: recently failing tiles first (up to half), then those probed longest ago. The other tiles are still covered every few sweeps. |
+
+All four are in the `instanttrack` preset. Checkpoints of v1.3 and v1.4 have the same networks.
+
+**Time to target, fine protocol** (a checkpoint every 100 iterations for 0.1 h, 4 evaluation replicas,
+a clip that fails in any replica counts; minutes):
+
+| | seeds | first ≥ 0.82 (mean) | held ×3 (mean) | held ×6 (mean) | it/s, seeds 10–14 |
+|---|---|---|---|---|---|
+| v1.3 | 15 | 2.22 | 3.09 | 3.34 | 10.28 |
+| **v1.4** | 15 | **2.01** | **2.74** | 3.05 (one seed not reached in 0.1 h) | **11.87** |
+
+Held ×3, seeds 0–14:
+
+- v1.3: 4.00 / 3.03 / 2.61 / 3.84 / 3.32 / 3.41 / 2.39 / 3.13 / 3.51 / 2.33 / 2.85 / 3.33 / 2.85 / 3.33 / 2.49
+- v1.4: 2.21 / 2.36 / 3.34 / 2.35 / 2.63 / 2.79 / 3.61 / 2.35 / 3.19 / 2.66 / 2.64 / 2.35 / 3.03 / 3.20 / 2.34
+
+**How strong this evidence is.** Paired by seed, v1.4 is 0.36 min faster (11.5 %) and wins 11 of 15, with
+p = 0.10 (sign-flip test) and a 95 % bootstrap interval of −0.74 to +0.03 min. So the time gain is a trend
+that this sample does not establish; the number of pairs was fixed before the last five v1.3 seeds ran.
+The gain matches the iteration rate: over seeds 10–14 the two versions first reach 0.82 at the same
+iteration on 4 of 5 seeds, and at 100 iterations earlier for v1.4 on the fifth.
+
+**Accuracy.** Unchanged within the noise. 5 seeds, 0.5 h: return 0.880 for both (standard deviation about
+0.003). In the 3-minute protocol, v1.4 had a failed clip in 3 of its 100 checkpoints, each one clip, at
+0.24–0.34 h, after the target was held; v1.3 had 1 of 95. The 1.5 h run of seed 0 had none in 61 checkpoints.
+
+| | return ↑ | body pos (cm) ↓ | body ori (°) ↓ | joints (°) ↓ | contact agreement ↑ | foot slip (cm/s) ↓ | penetration (mm) ↓ | root drift (cm) ↓ |
+|---|---|---|---|---|---|---|---|---|
+| v1.3, 0.5 h, seeds 0–2 | 0.879 | 3.23 | 7.0 | 4.41 | 0.772 | 6.50 | 0.055 | **45** |
+| v1.4, 0.5 h, seeds 0–2 | **0.881** | **3.14** | **6.9** | **4.29** | 0.773 | **6.44** | **0.054** | 48 |
+| v1.3, 1.5 h, seed 0 | 0.892 | **2.99** | 6.5 | **4.12** | 0.779 | 6.27 | 0.050 | 39 |
+| v1.4, 1.5 h, seed 0 | **0.894** | 3.07 | **6.4** | 4.21 | **0.782** | **6.15** | **0.049** | **37** |
+
+The 1.5 h rows are one run each, so their differences are within what another seed could give.
+
+**Which code produced these numbers.** The 15 v1.4 seeds (`f_e10_s*`) ran the development code, with the
+rejected flags below present and off, and the four flags on the command line. The released code was then
+run on seeds 0–2 (`v14fine_s*`): 2.72 / 3.24 / 2.35 min, mean 2.77, at 11.9 it/s. A 0.5 h run of the released code on seed 0 (`v14_s0`) ended at return 0.885 with no failed clip in any of its 20 checkpoints, at 20827 iterations (`e14_s0`: 21198). Of the v1.3 seeds, 0–2 ran the
+released v1.3 code (`v13fine_s*`), and 3–14 ran the v1.4 development code with the new flags off
+(`f_v13_s*`, `b13_s*`); both groups run at about 10.3 it/s. The 3-minute protocol and accuracy rows of v1.4
+are also from the development code (`e14_*`). Three runs crashed on this machine: `f_e10_s7` and the no-annealing `n13_s7` were re-run with the same seed (`*_s7r`), and `n13_s9`, which crashed as its evaluation process started, kept its training and re-ran the evaluation.
+
+**No annealing, with more seeds.** Without the policy learning-rate annealing, on seeds 0–9: v1.3 takes
+3.17 min (with annealing 3.16) and v1.4 2.93 min (with annealing 2.75). The annealing stays in the preset.
+
+**Not adopted in this round** (numbers under [What did not help](#what-did-not-help); these flags were removed
+from the code): encoder gradients through a subset of the rollouts (faster to the target but lower return
+later), near-miss and perturbed evaluation sweeps, imagination starts weighted by sweep failures, float8
+matrix multiplications, and hyperparameter changes (3 world-model batches, earlier learning-rate decay, 7 sweep steps per iteration).
 
 ---
 
@@ -135,7 +203,8 @@ matters for your use, train without `--ref_contact_fix`; we have not measured th
 **Finer time resolution.** The 3-minute protocol cannot resolve times below 0.05 h. With a checkpoint
 every 100 iterations and every checkpoint evaluated 4 times (a clip counts as failed if it fails in
 any replica), the release configuration holds the target (×3) from 4.00 / 3.03 / 2.61 minutes on seeds 0–2, 3.21 min on average
-(`scripts/fine_protocol.sh`, `tools/time_to_target.py`, runs `v13fine_s*`).
+(`scripts/fine_protocol.sh`, `tools/time_to_target.py`, runs `v13fine_s*`). On 15 seeds, the mean is 3.09 min
+(see [What's new in v1.4](#whats-new-in-v14)).
 
 **Where the v1.3 changes come from** (development runs, same fine protocol, seeds 0–2; the time held
 ×3 in minutes, mean):
@@ -148,13 +217,12 @@ any replica), the release configuration holds the target (×3) from 4.00 / 3.03 
 | + overlapped world-model updates | 2.86 / 2.68 / 2.67 (2.74) | 10.29 |
 | + policy learning-rate annealing = release configuration (`v13fine_s*`) | 4.00 / 3.03 / 2.61 (3.21) | 10.12 |
 
-From the starting point (3.68 min), v1.3's static-shape compilation and overlapped streams bring the
-time to **2.74 min (1.34× faster, 15 % more iterations per second)**, on seeds 0–2 (development runs).
-This configuration is the `instanttrack` preset with `--pi_anneal_len 0`. The release preset keeps the
-annealing and takes 3.21 min.
+**Correction (v1.4).** This table has three seeds per row, too few to rank these configurations. An earlier
+version of this README concluded from it that the configuration without annealing takes 2.74 min. On seeds 0–9
+that configuration takes 3.17 min, against 3.16 min with annealing. The iteration rates are reliable; the differences in minutes between rows are not.
 
 The policy learning-rate annealing was added last, for holding the target, not for speed: on the fine
-protocol it does not lower the time (3.21 min against 2.74 min, with seed 0 the slowest at 4.00 min). On the 3-minute protocol,
+protocol it does not lower the time (see the correction above). On the 3-minute protocol,
 without it seed 0 held the target only from 0.17 h (`jumps1_subject2` and `fallAndGetUp1_subject1`
 failed at 0.054 h, `fallAndGetUp2_subject3` at 0.15 h), and with it all five development seeds held
 it by 0.10 h (0.05 / 0.05 / 0.10 / 0.05 / 0.05 h; best return 0.873–0.878 against 0.873–0.874). Logs:
@@ -238,7 +306,8 @@ held-for-3 conditions, so a single lucky checkpoint does not count.
 | InstantTrack v1.0 | 3 | 0.25 / 0.25 / 0.25 | 0.25 | 5900 / 6000 / 5956 | 6.32 | 2.2× |
 | InstantTrack v1.1 | 5 | 0.15 / 0.16 / 0.25 / 0.20 / 0.20 | 0.19 | 3687 / 4000 / 5847 / 4868 / 4787 | 6.28 | 2.8× |
 | InstantTrack v1.2 | 5 | 0.10 / 0.10 / 0.10 / 0.10 / 0.18 | 0.12 | 3322 / 3270 / 3336 / 3370 / 6000 | 8.74 | 4.7× |
-| **InstantTrack v1.3** | 5 | **0.05 / 0.05 / 0.05 / 0.05 / 0.05** | **≤ 0.05** | 1895 / 1895 / 1895 / 1907 / 1903 | **10.32** | **≥ 10.9×** |
+| InstantTrack v1.3 | 5 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | ≤ 0.05 | 1895 / 1895 / 1895 / 1907 / 1903 | 10.32 | ≥ 10.9× |
+| **InstantTrack v1.4** | 5 | **0.05 / 0.05 / 0.05 / 0.05 / 0.05** | **≤ 0.05** | 2000 / 2000 / 2000 / 2000 / 2000 | **11.81** | **≥ 11.9×** |
 
 The speed-up has two sources. v1.3 runs 3.4× more iterations per second than SuperMimic, and it
 needs fewer iterations: all five seeds meet the target at the first checkpoint, ~1.9k iterations,
@@ -261,7 +330,8 @@ Mean over seeds of normalized return / failed clips:
 | InstantTrack v1.0 | 0.791 / 1.0 | 0.831 / 0.0 | 0.857 / 0.0 | 0.867 / 0.0 |
 | InstantTrack v1.1 (5 seeds) | 0.822 / 0.2 | 0.844 / 0.0 | 0.865 / 0.0 | **0.871 / 0.0** |
 | InstantTrack v1.2 (5 seeds, 0.5 h runs) | 0.855 / 0.2 | 0.866 / 0.0 | 0.875 / 0.2 | — |
-| **InstantTrack v1.3** (5 seeds, 0.5 h runs) | **0.865 / 0.0** | **0.872 / 0.0** | **0.880 / 0.0** | — |
+| InstantTrack v1.3 (5 seeds, 0.5 h runs) | 0.865 / 0.0 | **0.872 / 0.0** | **0.880 / 0.0** | — |
+| **InstantTrack v1.4** (5 seeds, 0.5 h runs) | **0.870 / 0.0** | 0.870 / 0.2 | **0.880 / 0.0** | — |
 
 At 0.5 h one v1.2 seed (seed 4) has one failed clip at that checkpoint.
 
@@ -293,7 +363,8 @@ After **1.5 h** of training (seed 0):
 | InstantTrack v1.0 | 0.877 | 3.27 | 6.4 | 3.98 | 0.829 | 6.48 | **0.046** | 62 |
 | InstantTrack v1.1 | 0.881 | **2.95** | **5.8** | 3.76 | 0.837 | 6.49 | 0.050 | 55 |
 | InstantTrack v1.2 | 0.886 | 3.01 | 6.0 | 3.96 | 0.845 | 6.56 | 0.047 | 52 |
-| **InstantTrack v1.3** | **0.892** | 2.99 | 6.5 | 4.12 | 0.779 | **6.27** | 0.050 | **39** |
+| InstantTrack v1.3 | 0.892 | 2.99 | 6.5 | 4.12 | 0.779 | 6.27 | 0.050 | 39 |
+| **InstantTrack v1.4** | **0.894** | 3.07 | 6.4 | 4.21 | 0.782 | **6.15** | 0.049 | **37** |
 
 The v1.1 row was evaluated in a later session (`results/metrics_a1_150h.md`). In that session we
 re-evaluated the SuperMimic + EMA and v1.0 checkpoints as well, and got return 0.879 / 0.878 and root
@@ -339,8 +410,9 @@ Each row adds one change to the row above. Times are "held ×3".
 | + CUDA-graph updates, batched goal encoding | 3 | 0.10 / 0.15 / 0.10 | 0.12 | 6.98 | 0.878 / 0.879 / 0.877 |
 | + policy 1024-512-256 = **InstantTrack v1.2** | 5 | 0.10 / 0.10 / 0.10 / 0.10 / 0.18 | 0.12 | 8.74 | 0.877 / 0.876 / 0.876 / 0.875 / 0.875 |
 | inherited BlinkMimic changes + static compilation, overlapped collection and world-model updates, policy lr annealing = **InstantTrack v1.3** | 5 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | ≤ 0.05 | 10.32 | 0.882 / 0.880 / 0.880 / 0.884 / 0.885 |
+| + batched goal encoding, critic and evaluation sweep on side streams, active evaluation sweep = **InstantTrack v1.4** | 5 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | ≤ 0.05 | 11.81 | 0.881 / 0.883 / 0.880 / 0.881 / 0.882 |
 
-Best return is over the run: 2 h for SuperMimic, 0.75 h up to v1.1, 0.5 h for the last five rows. The
+Best return is over the run: 2 h for SuperMimic, 0.75 h up to v1.1, 0.5 h for the last six rows. The
 steps from v1.2 to v1.3 are broken down, on a finer protocol, in [What's new in v1.3](#whats-new-in-v13).
 
 The contact reward costs ~0.03 h of time-to-target and ~0.007 return. In exchange, contact agreement
@@ -432,6 +504,20 @@ code; the logs are in `results/runs/v13dev_*`.
 
 The extra-starts run of seed 0 recompiled cold (new batch shape), so it is compared by iterations.
 
+**v1.4 round.** Same fine protocol. These flags are not in the v1.4 code; logs in `results/runs/f_*`. Most rows sit on
+development configurations and have few seeds, so read them as reasons for not pursuing a change, not as rankings.
+
+| change | seeds | held ×3 (min) | why not adopted |
+|---|---|---|---|
+| Encoder gradients through 25 % of the rollouts (`f_a10_s*`) | 15 | mean 2.58 (held ×6: 2.72) | faster than v1.4 (2.74) but not significantly; lower return in 5 seeds at 0.5 h (0.8780 against 0.8801) and in one seed at 1.5 h (0.8911 against 0.8940) |
+| Near misses count as sweep failures, margin 0.7 (`f_em70_s*`) | 5 | 2.74 / 2.42 / 2.42 / 3.33 / 2.56 | held ×6 worse: 5.04 / 2.42 / 3.64 / 3.33 / 4.25 |
+| Action noise 0.1 in the sweep (`f_en10_s*`) | 3 | 2.57 / 2.08 / 3.54 | no clear gain |
+| Imagination starts weighted by sweep failures, 25 % (`f_pf25_s*`) | 3 | 3.40 / 2.23 / 2.65 | no clear gain |
+| 3 world-model batches, tuning (`f_wm3_s*`) | 3 | 3.31 / 2.75 / 2.48 | held ×6 worse; one seed not reached in 0.1 h |
+| Learning-rate decay by iteration 1200, tuning (`f_ld12_s*`) | 3 | 2.43 / 3.50 / 2.30 | no clear gain |
+| 7 sweep steps per iteration, tuning (`f_a7_s*`) | 3 | 2.22 / 2.65 / 2.85 | no clear gain |
+| Float8 matrix multiplications, 1500 iterations, speed only | 1 each | not measured | slower: 0.067 h (policy only) and 0.053 h (policy and world model), against 0.037 h |
+
 ## How to read these numbers
 
 - **The baseline is our reimplementation, not the authors' code.** No official SuperMimic code is
@@ -444,6 +530,9 @@ The extra-starts run of seed 0 recompiled cold (new batch shape), so it is compa
   0.55 h. That is why SuperMimic + EMA is the baseline we quote the 4.7× against, and it is a change
   any SuperMimic implementation can adopt. The same holds for v1.1's reference-residual policy: it is
   not specific to InstantTrack and could be added to SuperMimic as well; we have not measured that.
+- **How v1.4 was chosen.** Changes were tried on seeds 0–2, then 0–4, against the time held ×3, with the return at
+  0.5 h and 1.5 h as a check. The chosen configuration then ran on 15 seeds; those seeds include the ones used for
+  selection, which favours v1.4 somewhat. The comparison stopped at the 15 pairs fixed in advance, with p = 0.10.
 - **How v1.3 was chosen.** v1.3 starts from BlinkMimic's code (InstantTrack v1.2 plus BlinkMimic's
   changes), so part of the gain from v1.2 to v1.3 comes from the inherited changes; the "starting
   point" row in [What's new in v1.3](#whats-new-in-v13) is that code before our v1.3 changes. Our four
@@ -526,7 +615,7 @@ Presets are defined in [`scripts/presets.sh`](scripts/presets.sh):
 |---|---|---|
 | `supermimic` | none | SuperMimic baseline, paper hyperparameters |
 | `supermimic_ema` | `--pi_ema 0.995` | fair baseline |
-| `instanttrack` | see [`scripts/presets.sh`](scripts/presets.sh) (v1.0 base, inherited changes, `--static_compile --overlap_collect --overlap_wm --pi_anneal_len 3000`) | **main configuration (v1.3)** |
+| `instanttrack` | see [`scripts/presets.sh`](scripts/presets.sh) (v1.0 base, inherited changes, `--static_compile --overlap_collect --overlap_wm --pi_anneal_len 3000 --batch_goal_enc --overlap_critic --eprobe_active 372 --eprobe_async 10`) | **main configuration (v1.4)** |
 
 The presets of v1.0–v1.2 (`instanttrack_track`, `instanttrack_v1.0`, `instanttrack_v1.1` and the v1.2
 `instanttrack`) use flags of the earlier code base: check out tag `v1.2.0` to run them.
@@ -682,7 +771,7 @@ particular SuperMimic, InstantMimic, mjlab and LAFAN1:
   title   = {InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in Minutes on One GPU},
   author  = {Huy-Quang-Dao},
   year    = {2026},
-  version = {1.3.0},
+  version = {1.4.0},
   url     = {https://github.com/Huy-Quang-Dao/instantTrack}
 }
 @article{liao2026supermimic,

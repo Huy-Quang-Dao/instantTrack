@@ -16,13 +16,14 @@ import matplotlib.pyplot as plt
 
 TARGET = 0.82
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
-COLORS = {"InstantTrack v1.3": "#1c4f9c", "InstantTrack v1.2": "#2a78d6", "InstantTrack v1.1": "#86b3e8", "InstantTrack v1.0": "#bcd3ee", "SuperMimic + EMA": "#eb6834", "SuperMimic": "#8a8984"}
+COLORS = {"InstantTrack v1.4": "#0d2f66", "InstantTrack v1.3": "#1c4f9c", "InstantTrack v1.2": "#2a78d6", "InstantTrack v1.1": "#86b3e8", "InstantTrack v1.0": "#bcd3ee", "SuperMimic + EMA": "#eb6834", "SuperMimic": "#8a8984"}
 
 V12 = ["e102_v11_muon_graph_bge_pi1024_s0", "e108_v11_muon_graph_bge_pi1024_s1", "e109_v11_muon_graph_bge_pi1024_s2", "e112_v12_s3", "e113_v12_s4"]
 V13 = ["v13_s0", "v13_s1", "v13_s2", "v13_s3", "v13_s4"]  # v1.3 release code, 0.5 h runs
+V14 = ["e14_s0", "e14_s1", "e14_s2", "e14_s3", "e14_s4"]  # v1.4 configuration, 0.5 h runs
 V11_CK15 = ["e83_v11_ck15_s0", "e106_v11_ck15_s1", "e107_v11_ck15_s2"]  # v1.1 re-run with 1.5-minute checkpoints, 0.5 h
 
-# 3 seeds per method (v1.1, v1.2, v1.3: 5); plain SuperMimic has one 2 h run (it needs ~1.5 h to reach the target)
+# 3 seeds per method (v1.1 to v1.4: 5); plain SuperMimic has one 2 h run (it needs ~1.5 h to reach the target)
 METHODS = {
     "SuperMimic": ["e0_supermimic_s0"],
     "SuperMimic + EMA": ["e3_supermimic_ema_s0", "e58_sm_ema_s1", "e59_sm_ema_s2"],
@@ -30,6 +31,7 @@ METHODS = {
     "InstantTrack v1.1": ["e71_rres10_s0", "e73_rres10_s1", "e74_rres10_s2", "e78_rres10_s3", "e79_rres10_s4"],
     "InstantTrack v1.2": V12,
     "InstantTrack v1.3": V13,
+    "InstantTrack v1.4": V14,
 }
 
 # cumulative ladder from SuperMimic to InstantTrack: (label, runs) — each row adds one change
@@ -50,6 +52,7 @@ LADDER = [
      ["e100_v11_muon_graph_bge_s0", "e101_v11_muon_graph_bge_s1", "e110_v11_muon_graph_bge_s2"]),
     ("+ policy encoder / decoder 1024-512-256 = **InstantTrack v1.2**", V12),
     ("inherited BlinkMimic changes + static compilation, overlapped collection and world-model updates, policy lr annealing = **InstantTrack v1.3**", V13),
+    ("+ batched goal encoding, critic and evaluation sweep on side streams, active evaluation sweep = **InstantTrack v1.4**", V14),
 ]
 
 # single-axis changes that did not help (all on top of the configuration named in the note)
@@ -146,7 +149,8 @@ def main():
     out.append("A second v1.1 run of seed 0 for 1.5 h (`e80_rres10_long_s0`) held the target from "
                f"{held(read_eval('e80_rres10_long_s0'))[0]:.2f} h, and the 1.5 h v1.2 run of seed 0 (`e111_v12_long_s0`) from "
                f"{held(read_eval('e111_v12_long_s0'))[0]:.2f} h. The 1.5 h v1.3 run of seed 0 (`v13_150h_s0`) held it from "
-               f"{held(read_eval('v13_150h_s0'))[0]:.2f} h.\n")
+               f"{held(read_eval('v13_150h_s0'))[0]:.2f} h, and the 1.5 h v1.4 run of seed 0 (`e14_150h_s0`) from "
+               f"{held(read_eval('e14_150h_s0'))[0]:.2f} h.\n")
     out.append("v1.2 runs were checkpointed every 1.5 minutes; all tables use only the checkpoints of the 3-minute protocol "
                "(every 0.05 h and every 2000 iterations). With every 1.5-minute checkpoint, v1.2 holds the target at "
                f"{fmt(summary(V12, coarse=False)['held_h'])} h and v1.1 (`e83`, `e106`, `e107`) at "

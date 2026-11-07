@@ -1,4 +1,4 @@
-A second v1.1 run of seed 0 for 1.5 h (`e80_rres10_long_s0`) held the target from 0.20 h, and the 1.5 h v1.2 run of seed 0 (`e111_v12_long_s0`) from 0.12 h. The 1.5 h v1.3 run of seed 0 (`v13_150h_s0`) held it from 0.05 h.
+A second v1.1 run of seed 0 for 1.5 h (`e80_rres10_long_s0`) held the target from 0.20 h, and the 1.5 h v1.2 run of seed 0 (`e111_v12_long_s0`) from 0.12 h. The 1.5 h v1.3 run of seed 0 (`v13_150h_s0`) held it from 0.05 h, and the 1.5 h v1.4 run of seed 0 (`e14_150h_s0`) from 0.05 h.
 
 v1.2 runs were checkpointed every 1.5 minutes; all tables use only the checkpoints of the 3-minute protocol (every 0.05 h and every 2000 iterations). With every 1.5-minute checkpoint, v1.2 holds the target at 0.10 / 0.10 / 0.10 / 0.10 / 0.18 h and v1.1 (`e83`, `e106`, `e107`) at 0.15 / 0.15 / 0.16 h.
 
@@ -12,6 +12,7 @@ v1.2 runs were checkpointed every 1.5 minutes; all tables use only the checkpoin
 | InstantTrack v1.1 | 5 | 0.15 / 0.16 / 0.25 / 0.20 / 0.20 | 0.19 | 3687 / 4000 / 5847 / 4868 / 4787 | 6.28 | 2.8× |
 | InstantTrack v1.2 | 5 | 0.10 / 0.10 / 0.10 / 0.10 / 0.18 | 0.12 | 3322 / 3270 / 3336 / 3370 / 6000 | 8.74 | 4.7× |
 | InstantTrack v1.3 | 5 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | 0.05 | 1895 / 1895 / 1895 / 1907 / 1903 | 10.32 | 10.9× |
+| InstantTrack v1.4 | 5 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | 0.05 | 2000 / 2000 / 2000 / 2000 / 2000 | 11.81 | 11.9× |
 
 ## Equal training time (mean over seeds: normalized return / failed clips)
 
@@ -23,6 +24,7 @@ v1.2 runs were checkpointed every 1.5 minutes; all tables use only the checkpoin
 | InstantTrack v1.1 | 0.822 / 0.2 | 0.844 / 0.0 | 0.865 / 0.0 | 0.871 / 0.0 |
 | InstantTrack v1.2 | 0.855 / 0.2 | 0.866 / 0.0 | 0.875 / 0.2 | — |
 | InstantTrack v1.3 | 0.865 / 0.0 | 0.872 / 0.0 | 0.880 / 0.0 | — |
+| InstantTrack v1.4 | 0.870 / 0.0 | 0.870 / 0.2 | 0.880 / 0.0 | — |
 
 ## Ablation ladder (each row adds one change to the row above)
 
@@ -42,6 +44,7 @@ v1.2 runs were checkpointed every 1.5 minutes; all tables use only the checkpoin
 | + CUDA-graph updates, goals encoded once per rollout (`--cuda_graph --batch_goal_enc`) | 3 | 0.10 / 0.15 / 0.10 | 0.12 | 6.98 | 0.878 / 0.879 / 0.877 |
 | + policy encoder / decoder 1024-512-256 = **InstantTrack v1.2** | 5 | 0.10 / 0.10 / 0.10 / 0.10 / 0.18 | 0.12 | 8.74 | 0.877 / 0.876 / 0.876 / 0.875 / 0.875 |
 | inherited BlinkMimic changes + static compilation, overlapped collection and world-model updates, policy lr annealing = **InstantTrack v1.3** | 5 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | 0.05 | 10.32 | 0.882 / 0.880 / 0.880 / 0.884 / 0.885 |
+| + batched goal encoding, critic and evaluation sweep on side streams, active evaluation sweep = **InstantTrack v1.4** | 5 | 0.05 / 0.05 / 0.05 / 0.05 / 0.05 | 0.05 | 11.81 | 0.881 / 0.883 / 0.880 / 0.881 / 0.881 |
 
 ## Variants not adopted
 
