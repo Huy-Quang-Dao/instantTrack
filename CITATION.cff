@@ -5,8 +5,8 @@ title: "InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in Minutes o
 authors:
   - family-names: Dao
     given-names: Huy Quang
-version: 1.4.0
-date-released: 2026-11-07
+version: 1.4.1
+date-released: 2026-11-23
 url: "https://github.com/Huy-Quang-Dao/instantTrack"
 repository-code: "https://github.com/Huy-Quang-Dao/instantTrack"
 license: MIT

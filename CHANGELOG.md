@@ -8,6 +8,16 @@ with the protocol in the README ("Time to target"); every number below can be re
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-23
+
+### Added
+
+- `CITATION.cff`, so GitHub shows "Cite this repository" and Zenodo archives each release with a DOI.
+
+### Changed
+
+- The BibTeX author is now `Dao, Huy Quang` instead of the GitHub handle. No code or result changes.
+
 ## [1.4.0] - 2026-11-07
 
 ### Results

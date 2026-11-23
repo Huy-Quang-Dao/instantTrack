@@ -771,7 +771,7 @@ particular SuperMimic, InstantMimic, mjlab and LAFAN1:
   title   = {InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in Minutes on One GPU},
   author  = {Dao, Huy Quang},
   year    = {2026},
-  version = {1.4.0},
+  version = {1.4.1},
   url     = {https://github.com/Huy-Quang-Dao/instantTrack}
 }
 @article{liao2026supermimic,
