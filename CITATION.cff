@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use InstantTrack, please cite it as below."
+type: software
+title: "InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in Minutes on One GPU"
+authors:
+  - family-names: Dao
+    given-names: Huy Quang
+version: 1.4.0
+date-released: 2026-11-07
+url: "https://github.com/Huy-Quang-Dao/instantTrack"
+repository-code: "https://github.com/Huy-Quang-Dao/instantTrack"
+license: MIT
+keywords:
+  - humanoid
+  - motion tracking
+  - robot learning
+  - Unitree G1

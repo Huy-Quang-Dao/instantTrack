@@ -769,7 +769,7 @@ particular SuperMimic, InstantMimic, mjlab and LAFAN1:
 ```bibtex
 @misc{instanttrack2026,
   title   = {InstantTrack: Whole-Body Motion Tracking for the Unitree G1 in Minutes on One GPU},
-  author  = {Huy-Quang-Dao},
+  author  = {Dao, Huy Quang},
   year    = {2026},
   version = {1.4.0},
   url     = {https://github.com/Huy-Quang-Dao/instantTrack}
