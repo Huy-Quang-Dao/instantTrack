@@ -1,5 +1,7 @@
 # InstantTrack
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24461144.svg)](https://doi.org/10.5281/zenodo.24461144)
+
 **Whole-body motion tracking for the Unitree G1 in about 3 minutes on one GPU.**
 InstantTrack trains a single policy for all 40 LAFAN1 clips (2.45 h of motion) to an evaluation
 normalized return of 0.82 with **0/40 failed clips at the first checkpoint, 0.05 h (3 minutes), on one
@@ -772,6 +774,7 @@ particular SuperMimic, InstantMimic, mjlab and LAFAN1:
   author  = {Dao, Huy Quang},
   year    = {2026},
   version = {1.4.1},
+  doi     = {10.5281/zenodo.24461144},
   url     = {https://github.com/Huy-Quang-Dao/instantTrack}
 }
 @article{liao2026supermimic,

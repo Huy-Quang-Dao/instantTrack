@@ -7,6 +7,7 @@ authors:
     given-names: Huy Quang
 version: 1.4.1
 date-released: 2026-11-23
+doi: 10.5281/zenodo.24461144
 url: "https://github.com/Huy-Quang-Dao/instantTrack"
 repository-code: "https://github.com/Huy-Quang-Dao/instantTrack"
 license: MIT
