@@ -24,19 +24,12 @@ add needs **0.55 h**. InstantTrack is also more accurate and makes cleaner foot 
 > we thank its author. See [What's new in v1.3](#whats-new-in-v13) and [CHANGELOG.md](CHANGELOG.md). The v1.0–v1.2 configurations use flags of the earlier code base;
 > check out tag `v1.2.0` to run them.
 
-> **New: InstantGMT (in progress).** InstantTrack's training ideas applied to general motion
-> tracking for humanoid teleoperation: one policy for a large VR-teleoperation motion library, with
-> the network, observations and deployment interface of a policy already running on a robot, trained
-> in hours instead of most of a day on one GPU. Project page:
-> <https://huy-quang-dao.github.io/instantTrack/>. Paper in preparation; code to follow.
-
 InstantTrack builds on SuperMimic (one differentiable world model, backpropagation through imagined
 rollouts) and adds InstantMimic-style GPU work on the training loop, a few algorithmic changes and a
 contact reward. Since v1.3 it includes the changes of BlinkMimic. It runs on [mjlab](https://github.com/mujocolab/mjlab) / MuJoCo Warp and is
 installed with [uv](https://docs.astral.sh/uv/).
 
-**Project page:** the InstantTrack page is kept in the [`instanttrack-page`](https://github.com/Huy-Quang-Dao/instantTrack/tree/instanttrack-page) branch. The
-GitHub Pages site of this repository now hosts InstantGMT (above).
+**Project page:** <https://huy-quang-dao.github.io/instantTrack/> (source in the [`instanttrack-page`](https://github.com/Huy-Quang-Dao/instantTrack/tree/instanttrack-page) branch).
 
 ![Same 3 minutes of training: InstantTrack v1.2 and InstantTrack v1.3 on fallAndGetUp2_subject2.](media/equal_time_3min.gif)
 
